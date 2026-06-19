@@ -325,11 +325,94 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 <!-- ── HISTÓRICO ── -->
 <div class="pg" id="pg-hist">
   <div style="font-size:18px;font-weight:800;margin-bottom:14px;">Histórico</div>
-  <div class="row2" style="margin-bottom:14px;">
+
+  <!-- Stats gerais -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
     <div class="stat"><div class="sv cb" id="ht-total">0</div><div class="sl">Treinos</div></div>
     <div class="stat"><div class="sv cg" id="ht-best">—</div><div class="sl">Melhor</div></div>
+    <div class="stat"><div class="sv" style="color:#ffd600;" id="ht-km">0</div><div class="sl">km total</div></div>
   </div>
+
+  <!-- Resumo semanal/mensal -->
+  <div class="card" style="margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div class="ct" style="margin:0;">Resumo</div>
+      <div class="tog" style="margin:0;padding:3px;width:auto;">
+        <div class="to on" id="per-sem" onclick="setPeriod('sem')" style="padding:6px 12px;font-size:12px;">Semana</div>
+        <div class="to" id="per-mes" onclick="setPeriod('mes')" style="padding:6px 12px;font-size:12px;">Mês</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#3b9eff;" id="per-treinos">0</div><div style="font-size:11px;color:#7a8fbb;">treinos</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#00c853;" id="per-km">0</div><div style="font-size:11px;color:#7a8fbb;">km</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#ffd600;" id="per-media">—</div><div style="font-size:11px;color:#7a8fbb;">pts médio</div></div>
+    </div>
+    <!-- Comparativo vs período anterior -->
+    <div id="per-comp" style="margin-top:10px;font-size:12px;color:#7a8fbb;text-align:center;"></div>
+  </div>
+
+  <!-- Gráfico de evolução de pontuação -->
+  <div class="card" style="margin-bottom:12px;">
+    <div class="ct">Evolução da Pontuação</div>
+    <canvas id="score-chart" style="width:100%;height:100px;display:block;"></canvas>
+    <div style="display:flex;justify-content:space-between;margin-top:4px;">
+      <span style="font-size:11px;color:#7a8fbb;" id="chart-oldest">—</span>
+      <span style="font-size:11px;color:#7a8fbb;" id="chart-newest">—</span>
+    </div>
+  </div>
+
+  <!-- Exportar -->
+  <div style="display:flex;gap:8px;margin-bottom:14px;">
+    <button class="btn btn-s" style="font-size:13px;padding:10px;margin:0;flex:1;" onclick="exportCSV()">⬇ Exportar CSV</button>
+    <button class="btn btn-s" style="font-size:13px;padding:10px;margin:0;flex:1;" onclick="exportPDF()">⬇ Exportar PDF</button>
+  </div>
+
+  <!-- Lista de treinos -->
   <div id="hist-list"></div>
+</div>
+
+<!-- MODAL DETALHE TREINO -->
+<div id="mod-detail" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);overflow-y:auto;">
+  <div style="margin:20px 16px 60px;background:#131929;border-radius:20px;padding:22px 18px;border:1px solid #2a3a55;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:17px;font-weight:800;" id="det-title">Treino</div>
+      <button onclick="document.getElementById('mod-detail').style.display='none'" style="background:none;border:none;color:#7a8fbb;font-size:22px;cursor:pointer;">✕</button>
+    </div>
+
+    <!-- Score e data -->
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+      <div style="width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;border:3px solid;" id="det-score-ring">0</div>
+      <div>
+        <div style="font-size:14px;font-weight:700;" id="det-label">—</div>
+        <div style="font-size:12px;color:#7a8fbb;" id="det-date">—</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+      <div class="stat"><div class="sv" id="det-dist">—</div><div class="sl">Distância</div></div>
+      <div class="stat"><div class="sv" id="det-dur">—</div><div class="sl">Duração</div></div>
+      <div class="stat"><div class="sv" id="det-pace">—</div><div class="sl">Pace médio</div></div>
+      <div class="stat"><div class="sv cr" id="det-fcmax">—</div><div class="sl">FC máxima</div></div>
+    </div>
+
+    <!-- Zonas -->
+    <div class="card" style="margin-bottom:10px;">
+      <div class="ct">Tempo por zona</div>
+      <div id="det-zones"></div>
+    </div>
+
+    <!-- Mapa -->
+    <div class="map-box" id="det-map-wrap"><canvas id="det-map"></canvas></div>
+
+    <!-- Comparativo com anterior -->
+    <div class="card" id="det-comp-card" style="margin-bottom:10px;display:none;">
+      <div class="ct">Comparativo com treino anterior</div>
+      <div id="det-comp"></div>
+    </div>
+
+    <button class="btn btn-r" style="font-size:13px;padding:10px;" onclick="deleteWorkout()">🗑 Excluir treino</button>
+  </div>
 </div>
 
 <!-- ── PERFIL ── -->
@@ -433,7 +516,7 @@ function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.his
 let _tto;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_tto);_tto=setTimeout(()=>t.classList.remove('show'),4000);}
 
-// ── VOICE ──
+// ── VOICE (Web Speech API) ──
 let _voice=null,_unlocked=false;
 const _ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
 
@@ -441,18 +524,6 @@ function loadVoice(){
   if(!('speechSynthesis' in window))return;
   const pick=()=>{const vs=speechSynthesis.getVoices();if(!vs.length)return;const order=[v=>v.name==='Luciana',v=>v.name.includes('Luciana'),v=>v.lang==='pt-BR'&&v.localService,v=>v.name.toLowerCase().includes('francisca'),v=>v.lang==='pt-BR',v=>v.lang.startsWith('pt')];for(const t of order){const f=vs.find(t);if(f){_voice=f;break;}}};
   pick();speechSynthesis.onvoiceschanged=pick;
-}
-
-function activateVoice(){
-  document.getElementById('btn-voice').style.display='none';
-  checkBanner();
-  if(!('speechSynthesis' in window))return;
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance('.');
-  u.volume=0.01;u.rate=2;u.lang='pt-BR';
-  u.onend=()=>{_unlocked=true;loadVoice();setTimeout(()=>say('Coach de voz ativado! Estou aqui para te guiar.'),300);};
-  setTimeout(()=>{if(!_unlocked){_unlocked=true;loadVoice();}},2000);
-  speechSynthesis.speak(u);
 }
 
 function say(msg){
@@ -468,6 +539,18 @@ function say(msg){
     if(_ios){const ka=setInterval(()=>{if(!speechSynthesis.speaking){clearInterval(ka);return;}speechSynthesis.pause();speechSynthesis.resume();},8000);u.onend=()=>clearInterval(ka);}
     speechSynthesis.speak(u);
   },60);
+}
+
+function activateVoice(){
+  document.getElementById('btn-voice').style.display='none';
+  checkBanner();
+  if(!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance('.');
+  u.volume=0.01;u.rate=2;u.lang='pt-BR';
+  u.onend=()=>{_unlocked=true;loadVoice();setTimeout(()=>say('Coach de voz ativado!'),300);};
+  setTimeout(()=>{if(!_unlocked){_unlocked=true;loadVoice();}},2000);
+  speechSynthesis.speak(u);
 }
 
 // ── GPS ──
@@ -551,7 +634,7 @@ function goTo(name){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+name).classList.add('on');
   const nb=document.getElementById('nb-'+name);if(nb)nb.classList.add('on');
-  if(name==='hist')renderHist();
+  if(name==='hist'){renderHist();setTimeout(renderScoreChart,80);}
   if(name==='perfil')renderPerfil();
   if(name==='home')renderHome();
   if(name==='eval')evalReset();
@@ -820,12 +903,264 @@ function resetTreino(){
 }
 
 // ── HISTÓRICO ──
+let _period = 'sem';
+let _detIdx = null;
+
+function setPeriod(p){
+  _period=p;
+  document.getElementById('per-sem').classList.toggle('on',p==='sem');
+  document.getElementById('per-mes').classList.toggle('on',p==='mes');
+  renderPeriod();
+}
+
 function renderHist(){
+  // Stats gerais
   document.getElementById('ht-total').textContent=S.hist.length;
   const best=S.hist.length?Math.max(...S.hist.map(h=>h.score)):null;
   document.getElementById('ht-best').textContent=best!==null?best+' pts':'—';
-  if(!S.hist.length){document.getElementById('hist-list').innerHTML='<div style="text-align:center;padding:40px;color:#7a8fbb;"><div style="font-size:40px;margin-bottom:10px;">📋</div>Nenhum treino ainda</div>';return;}
-  document.getElementById('hist-list').innerHTML=S.hist.map(h=>{const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';return`<div class="hi"><div class="hico" style="background:${c}22;">🏃</div><div style="flex:1;"><div style="font-size:14px;font-weight:700;">${h.score>=80?'🏆':h.score>=60?'✅':'💪'} ${h.score} pts</div><div style="font-size:12px;color:#7a8fbb;">${h.date} · ${h.dur} · ${h.dist}</div><div style="font-size:12px;color:#7a8fbb;">${h.pace} · FC máx ${h.fcMax} bpm</div></div></div>`;}).join('');}
+  const totalKm=S.hist.reduce((a,h)=>a+parseFloat(h.dist||0),0);
+  document.getElementById('ht-km').textContent=totalKm.toFixed(1);
+
+  renderPeriod();
+  renderScoreChart();
+
+  if(!S.hist.length){
+    document.getElementById('hist-list').innerHTML='<div style="text-align:center;padding:40px;color:#7a8fbb;"><div style="font-size:40px;margin-bottom:10px;">📋</div>Nenhum treino ainda</div>';
+    return;
+  }
+  document.getElementById('hist-list').innerHTML=S.hist.map((h,i)=>{
+    const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';
+    const em=h.score>=80?'🏆':h.score>=60?'✅':'💪';
+    return`<div class="hi" onclick="openDetail(${i})" style="cursor:pointer;">
+      <div class="hico" style="background:${c}22;font-size:22px;">🏃</div>
+      <div style="flex:1;">
+        <div style="font-size:14px;font-weight:700;">${em} ${h.score} pts · ${h.dist}</div>
+        <div style="font-size:12px;color:#7a8fbb;">${h.date} · ${h.dur} · ${h.pace}</div>
+        <div style="font-size:12px;color:#7a8fbb;">FC máx ${h.fcMax} bpm</div>
+      </div>
+      <div style="color:#7a8fbb;font-size:18px;">›</div>
+    </div>`;
+  }).join('');
+}
+
+function renderPeriod(){
+  const now=new Date();
+  const cutoff=new Date();
+  const cutoffPrev=new Date();
+  if(_period==='sem'){cutoff.setDate(now.getDate()-7);cutoffPrev.setDate(now.getDate()-14);}
+  else{cutoff.setMonth(now.getMonth()-1);cutoffPrev.setMonth(now.getMonth()-2);}
+
+  const cur=S.hist.filter(h=>parseDate(h.date)>=cutoff);
+  const prev=S.hist.filter(h=>{const d=parseDate(h.date);return d>=cutoffPrev&&d<cutoff;});
+
+  document.getElementById('per-treinos').textContent=cur.length;
+  const km=cur.reduce((a,h)=>a+parseFloat(h.dist||0),0);
+  document.getElementById('per-km').textContent=km.toFixed(1);
+  const media=cur.length?Math.round(cur.reduce((a,h)=>a+h.score,0)/cur.length):0;
+  document.getElementById('per-media').textContent=cur.length?media+'pts':'—';
+
+  // Comparativo
+  if(prev.length){
+    const prevKm=prev.reduce((a,h)=>a+parseFloat(h.dist||0),0);
+    const prevMedia=Math.round(prev.reduce((a,h)=>a+h.score,0)/prev.length);
+    const diffT=cur.length-prev.length;
+    const diffKm=(km-prevKm).toFixed(1);
+    const diffM=media-prevMedia;
+    const parts=[];
+    parts.push(diffT>=0?`+${diffT} treinos vs período anterior`:`${diffT} treinos vs período anterior`);
+    parts.push((km-prevKm)>=0?`+${diffKm}km`:`${diffKm}km`);
+    parts.push(diffM>=0?`pontuação +${diffM}pts`:`pontuação ${diffM}pts`);
+    document.getElementById('per-comp').textContent=parts.join(' · ');
+  } else {
+    document.getElementById('per-comp').textContent='Sem dados do período anterior para comparar';
+  }
+}
+
+function parseDate(str){
+  // formato dd/mm/aaaa
+  try{const p=str.split('/');return new Date(+p[2],+p[1]-1,+p[0]);}catch(e){return new Date();}
+}
+
+function renderScoreChart(){
+  const cv=document.getElementById('score-chart');
+  if(!cv||!S.hist.length)return;
+  const W=cv.offsetWidth||340,H=100;
+  cv.width=W;cv.height=H;
+  const ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+
+  const data=[...S.hist].reverse(); // mais antigo primeiro
+  const max=100,min=0,pad=12;
+  const step=(W-pad*2)/(Math.max(data.length-1,1));
+
+  // Grid lines
+  [25,50,75].forEach(v=>{
+    const y=H-pad-(v/100)*(H-pad*2);
+    ctx.beginPath();ctx.strokeStyle='#2a3a55';ctx.lineWidth=1;ctx.setLineDash([3,3]);
+    ctx.moveTo(pad,y);ctx.lineTo(W-pad,y);ctx.stroke();ctx.setLineDash([]);
+  });
+
+  // Linha de pontuação
+  ctx.beginPath();ctx.strokeStyle='#3b9eff';ctx.lineWidth=2.5;ctx.lineJoin='round';
+  data.forEach((h,i)=>{
+    const x=pad+i*step;
+    const y=H-pad-(h.score/100)*(H-pad*2);
+    i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Área sob a linha
+  ctx.beginPath();
+  data.forEach((h,i)=>{const x=pad+i*step;const y=H-pad-(h.score/100)*(H-pad*2);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.lineTo(pad+(data.length-1)*step,H-pad);ctx.lineTo(pad,H-pad);ctx.closePath();
+  ctx.fillStyle='rgba(59,158,255,.1)';ctx.fill();
+
+  // Pontos
+  data.forEach((h,i)=>{
+    const x=pad+i*step,y=H-pad-(h.score/100)*(H-pad*2);
+    const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';
+    ctx.beginPath();ctx.fillStyle=c;ctx.arc(x,y,4,0,Math.PI*2);ctx.fill();
+  });
+
+  // Labels
+  if(data.length>0){
+    document.getElementById('chart-oldest').textContent=data[0].date;
+    document.getElementById('chart-newest').textContent=data[data.length-1].date;
+  }
+}
+
+// ── DETALHE DO TREINO ──
+function openDetail(idx){
+  _detIdx=idx;
+  const h=S.hist[idx];
+  const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';
+  const em=h.score>=80?'🏆':h.score>=60?'✅':'💪';
+
+  document.getElementById('det-title').textContent=em+' Treino #'+(S.hist.length-idx);
+  document.getElementById('det-score-ring').textContent=h.score;
+  document.getElementById('det-score-ring').style.borderColor=c;
+  document.getElementById('det-score-ring').style.color=c;
+  document.getElementById('det-label').textContent=h.score>=80?'Excelente execução!':h.score>=60?'Bom treino!':'Continue evoluindo!';
+  document.getElementById('det-date').textContent=h.date;
+  document.getElementById('det-dist').textContent=h.dist;
+  document.getElementById('det-dur').textContent=h.dur;
+  document.getElementById('det-pace').textContent=h.pace;
+  document.getElementById('det-fcmax').textContent=h.fcMax?h.fcMax+' bpm':'—';
+
+  // Zonas
+  const totZT=h.zt?Object.values(h.zt).reduce((a,v)=>a+v,0)||1:1;
+  document.getElementById('det-zones').innerHTML=h.zt?['blue','green','yellow','red'].map(z=>{
+    const pct=Math.round((h.zt[z]||0)/totZT*100);
+    const tm=Math.floor((h.zt[z]||0)/60),ts=(h.zt[z]||0)%60;
+    return`<div style="margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+        <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
+        <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(ts)} · ${pct}%</span>
+      </div>
+      <div style="height:7px;background:#1a2236;border-radius:4px;">
+        <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
+      </div>
+    </div>`;
+  }).join(''):'<div style="font-size:13px;color:#7a8fbb;">Sem dados de zona</div>';
+
+  // Mapa da rota salva
+  const mapWrap=document.getElementById('det-map-wrap');
+  if(h.route&&h.route.length>1){
+    mapWrap.style.display='block';
+    const savedRoute=S.gps.route;
+    S.gps.route=h.route;
+    setTimeout(()=>{drawMap('det-map');S.gps.route=savedRoute;},80);
+  } else {
+    mapWrap.style.display='none';
+  }
+
+  // Comparativo com treino anterior
+  if(idx<S.hist.length-1){
+    const prev=S.hist[idx+1];
+    const diffs=[
+      {l:'Pontuação',cur:h.score,prev:prev.score,unit:'pts'},
+      {l:'Distância',cur:parseFloat(h.dist),prev:parseFloat(prev.dist),unit:'km',dec:2},
+      {l:'FC máxima',cur:h.fcMax||0,prev:prev.fcMax||0,unit:'bpm',inv:true},
+    ];
+    document.getElementById('det-comp').innerHTML=diffs.map(d=>{
+      const diff=d.cur-d.prev;
+      const better=d.inv?diff<0:diff>0;
+      const eq=diff===0;
+      const sign=diff>0?'+':'';
+      const val=d.dec?diff.toFixed(d.dec):diff;
+      const c2=eq?'#7a8fbb':better?'#00c853':'#ff3d3d';
+      const arrow=eq?'→':better?'↑':'↓';
+      return`<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #2a3a55;">
+        <span style="font-size:13px;">${d.l}</span>
+        <span style="font-size:13px;font-weight:700;color:${c2};">${arrow} ${sign}${val} ${d.unit}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('det-comp-card').style.display='block';
+  } else {
+    document.getElementById('det-comp-card').style.display='none';
+  }
+
+  document.getElementById('mod-detail').style.display='block';
+}
+
+function deleteWorkout(){
+  if(_detIdx===null)return;
+  if(!confirm('Excluir este treino?'))return;
+  S.hist.splice(_detIdx,1);save();
+  document.getElementById('mod-detail').style.display='none';
+  renderHist();
+}
+
+// ── EXPORTAR CSV ──
+function exportCSV(){
+  if(!S.hist.length){toast('Nenhum treino para exportar');return;}
+  const hdr='Data,Duração,Distância,Pace,FC Máxima,Pontuação,Azul(s),Verde(s),Amarelo(s),Vermelho(s)';
+  const rows=S.hist.map(h=>[
+    h.date,h.dur,h.dist,h.pace,h.fcMax||'',h.score,
+    h.zt?h.zt.blue||0:'',h.zt?h.zt.green||0:'',h.zt?h.zt.yellow||0:'',h.zt?h.zt.red||0:''
+  ].join(','));
+  const csv='\uFEFF'+hdr+'\n'+rows.join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='cncoach_historico.csv';a.click();
+  URL.revokeObjectURL(url);
+  toast('CSV exportado!');
+}
+
+// ── EXPORTAR PDF (texto formatado via janela de impressão) ──
+function exportPDF(){
+  if(!S.hist.length){toast('Nenhum treino para exportar');return;}
+  const u=S.user;
+  const rows=S.hist.map((h,i)=>`
+    <tr style="border-bottom:1px solid #eee;">
+      <td style="padding:6px 8px;">${h.date}</td>
+      <td style="padding:6px 8px;">${h.dur}</td>
+      <td style="padding:6px 8px;">${h.dist}</td>
+      <td style="padding:6px 8px;">${h.pace}</td>
+      <td style="padding:6px 8px;">${h.fcMax||'—'}</td>
+      <td style="padding:6px 8px;font-weight:700;color:${h.score>=80?'#00aa44':h.score>=60?'#cc8800':'#cc2222'};">${h.score}</td>
+    </tr>`).join('');
+  const totalKm=S.hist.reduce((a,h)=>a+parseFloat(h.dist||0),0).toFixed(1);
+  const media=Math.round(S.hist.reduce((a,h)=>a+h.score,0)/S.hist.length);
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>CnCoach — Histórico</title>
+  <style>body{font-family:Arial,sans-serif;padding:24px;color:#111;}h1{color:#1a3a6b;margin-bottom:4px;}h2{font-size:14px;color:#555;margin-bottom:20px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}th{background:#1a3a6b;color:#fff;padding:8px;text-align:left;}
+  .sum{display:flex;gap:20px;margin-bottom:20px;}.sb{background:#f5f5f5;border-radius:8px;padding:12px 18px;text-align:center;}
+  .sv{font-size:22px;font-weight:700;}.sl{font-size:12px;color:#777;}</style></head><body>
+  <h1>CnCoach — Relatório de Treinos</h1>
+  <h2>${u?u.nome+' · ':''} Gerado em ${new Date().toLocaleDateString('pt-BR')}</h2>
+  <div class="sum">
+    <div class="sb"><div class="sv">${S.hist.length}</div><div class="sl">Treinos</div></div>
+    <div class="sb"><div class="sv">${totalKm} km</div><div class="sl">Distância total</div></div>
+    <div class="sb"><div class="sv">${media} pts</div><div class="sl">Média geral</div></div>
+    <div class="sb"><div class="sv">${Math.max(...S.hist.map(h=>h.score))} pts</div><div class="sl">Melhor treino</div></div>
+  </div>
+  <table><thead><tr><th>Data</th><th>Duração</th><th>Distância</th><th>Pace</th><th>FC máx</th><th>Pontuação</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <script>window.onload=()=>window.print();<\/script></body></html>`);
+  win.document.close();
+}
 
 // ── PERFIL ──
 function renderPerfil(){
@@ -839,9 +1174,9 @@ function renderPerfil(){
   document.getElementById('pf-fcrep').textContent=u.fcrep+' bpm';
   document.getElementById('pf-zones').innerHTML=zonesHTML(u.zones);
   const l5=S.hist.slice(0,5).reverse();
-  document.getElementById('pf-chart').innerHTML=l5.length?l5.map(h=>{const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';return`<div style="flex:1;background:${c};height:${Math.max(4,(h.score/100)*60)}px;border-radius:3px 3px 0 0;" title="${h.score} pts"></div>`;}).join(''):'<div style="font-size:13px;color:#7a8fbb;padding:10px;">Nenhum treino ainda</div>';}
+  document.getElementById('pf-chart').innerHTML=l5.length?l5.map(h=>{const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';return`<div style="flex:1;background:${c};height:${Math.max(4,(h.score/100)*60)}px;border-radius:3px 3px 0 0;" title="${h.score} pts"></div>`;}).join(''):'<div style="font-size:13px;color:#7a8fbb;padding:10px;">Nenhum treino ainda</div>';
+}
 
-// ── UTILS ──
 function pad(n){return String(n).padStart(2,'0');}
 function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function n(){return S.user?S.user.nome.split(' ')[0]:'';}
