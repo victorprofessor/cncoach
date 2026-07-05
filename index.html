@@ -780,8 +780,9 @@ let _lz=null,_lkm=0,_half=false;
 function startTreino(){
   S.active=true;S.livre=false;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
   S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
+  initSegLogs();
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
-  if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBar();}
+  if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBarActive(0);}
   startGPS();S.iv=setInterval(tick,1000);
   say(pick(['Vamos lá, '+n()+'! Treino iniciado. Foco total agora.',''+n()+', é hora de treinar! Vai com tudo!']));
 }
@@ -805,13 +806,133 @@ function tick(){
   const zone=zoneFor(S.fc);
   if(zone)S.zt[zone]++;
   updateZoneUI(zone);
+
   // Pace
   if(S.gps.dist>0.01){const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);document.getElementById('az-pace').textContent=pm+':'+pad(ps);}
-  // Score
-  if(!S.livre)calcScore();
+
+  // Atualiza fase atual e acumula FC por segmento
+  if(!S.livre){
+    updateSegProgress();
+    calcScoreAccum();
+  }
+
   // Voice coaching
-  if(zone&&zone!==_lz){const ci=ZI[zone];say(pick(COACH_Z[zone])(n()));_lz=zone;}
+  if(zone&&zone!==_lz){say(pick(COACH_Z[zone])(n()));_lz=zone;}
   else coachPeriodic(zone,m);
+}
+
+// ── Rastreia FC por segmento para pontuação precisa ──
+// S.segFcLog = [{fc: [], done: false}] — um por segmento
+function initSegLogs(){
+  S.segFcLog = S.segs.map(()=>({fc:[],done:false,announced:false}));
+  S.curSegIdx = 0;
+}
+
+function getCurrentSegIdx(){
+  if(!S.segs.length) return -1;
+  let acc=0;
+  for(let i=0;i<S.segs.length;i++){
+    const seg=S.segs[i];
+    if(seg.mode==='time'){
+      // Segmento por tempo: usa segundos acumulados nos segmentos anteriores
+      const prevTime=S.segs.slice(0,i).filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur*60,0);
+      const timeInSeg=S.sec-prevTime;
+      if(timeInSeg<seg.dur*60) return i;
+      acc+=seg.dur*60;
+    } else {
+      acc+=seg.dist;
+      if(S.gps.dist<=acc) return i;
+    }
+  }
+  return S.segs.length-1;
+}
+
+function updateSegProgress(){
+  const idx=getCurrentSegIdx();
+  if(idx<0) return;
+
+  // Acumula FC do segmento atual
+  if(S.segFcLog && S.segFcLog[idx]) S.segFcLog[idx].fc.push(S.fc);
+
+  // Detecta conclusão de segmento
+  if(S.segFcLog && idx > S.curSegIdx){
+    const prev=S.segs[S.curSegIdx];
+    const log=S.segFcLog[S.curSegIdx];
+    if(!log.announced){
+      log.announced=true;
+      const avgFC=log.fc.length?Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length):S.fc;
+      const inZone=avgFC>=prev.fcMin&&avgFC<=prev.fcMax;
+      const segName=prev.label||`Fase ${S.curSegIdx+1}`;
+      const next=S.segs[idx];
+      const nextName=next?`Próxima: ${next.label||'Fase '+(idx+1)} — zona ${ZI[next.zone].n}`:'';
+      if(inZone) say(`Fase "${segName}" concluída! Boa execução. ${nextName}`);
+      else say(`Fase "${segName}" concluída. ${nextName}`);
+    }
+    S.curSegIdx=idx;
+  }
+
+  // Atualiza barra de segmentos
+  renderSegBarActive(idx);
+  // Mostra qual fase está
+  const seg=S.segs[idx];
+  const segName=seg.label||`Fase ${idx+1}`;
+  const total=S.segs.length;
+  document.getElementById('seg-info').textContent=`Fase ${idx+1} de ${total}: ${segName} · ${ZI[seg.zone].n} · ${seg.fcMin}–${seg.fcMax} bpm`;
+}
+
+function renderSegBarActive(activeIdx){
+  const el=document.getElementById('seg-bar');
+  const tot=S.segs.reduce((a,s)=>a+(s.dist||s.dur||1),0);
+  el.innerHTML=S.segs.map((s,i)=>{
+    const w=((s.dist||s.dur||1)/tot*100).toFixed(1);
+    const isCur=i===activeIdx;
+    const isDone=i<activeIdx;
+    const op=isDone?'0.35':'1';
+    const outline=isCur?'outline:2px solid #fff;outline-offset:-2px;':'';
+    return`<div class="seg-p" style="flex:${w};background:${ZI[s.zone].hex}${isDone?'44':'99'};border:1px solid ${ZI[s.zone].hex};opacity:${op};${outline}font-size:10px;" title="${s.label||'Fase '+(i+1)}">${isCur?'▶':''} ${ZI[s.zone].n.charAt(0)}</div>`;
+  }).join('');
+}
+
+// ── Pontuação acumulada por segmento (baseada na FC média de cada fase) ──
+function calcScoreAccum(){
+  if(!S.segs.length||!S.segFcLog) return;
+  let tot=0, wt=0;
+  S.segs.forEach((seg,i)=>{
+    const log=S.segFcLog[i];
+    if(!log||!log.fc.length) return; // segmento não iniciado — não conta
+    const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
+    const w=seg.dist||seg.dur||1;
+    let pts=0;
+    if(avg>=seg.fcMin&&avg<=seg.fcMax){
+      // Na zona: 60-100 conforme proximidade ao centro
+      const mid=(seg.fcMin+seg.fcMax)/2;
+      const range=(seg.fcMax-seg.fcMin)/2||1;
+      pts=60+40*(1-Math.abs(avg-mid)/range);
+    } else if(avg<seg.fcMin){
+      // Abaixo da zona
+      const diff=seg.fcMin-avg;
+      pts=Math.max(0,60-diff*3);
+    } else {
+      // Acima da zona
+      const diff=avg-seg.fcMax;
+      pts=Math.max(0,60-diff*3);
+    }
+    tot+=pts*w; wt+=w;
+  });
+
+  // Penaliza se interrompeu antes — segmentos não iniciados valem 0
+  const segsIniciados=S.segFcLog.filter(l=>l.fc.length>0).length;
+  const totalSegs=S.segs.length;
+  const completionFactor=segsIniciados/totalSegs; // 0 a 1
+
+  const base=wt>0?Math.round(tot/wt):0;
+  const sc=Math.round(base*completionFactor);
+
+  document.getElementById('az-score').textContent=sc;
+  document.getElementById('az-score-d').textContent=
+    sc>=80?'🔥 Excelente execução!':
+    sc>=60?'✅ Bom ritmo!':
+    sc>=40?'⚠ Ajuste a intensidade':'📉 Fora da zona alvo';
 }
 
 const COACH_Z={
@@ -823,21 +944,58 @@ const COACH_Z={
 
 function coachPeriodic(zone,m){
   const km=parseFloat(S.gps.dist.toFixed(1));
-  if(S.sec>60&&S.sec%120===0){say(pick([`${n()}, ${m} minutos de treino. Continua assim!`,`Tá ótimo, ${n()}. ${m} minutos. Mantém o foco.`,`${n()}, você tá há ${m} minutos em movimento!`]));return;}
+
+  // A cada 30s: verifica FC vs zona alvo do segmento atual
+  if(S.sec>30&&S.sec%30===0&&S.segs.length){
+    const idx=getCurrentSegIdx();
+    if(idx>=0){
+      const seg=S.segs[idx];
+      const fc=S.fc;
+      const segName=seg.label||`Fase ${idx+1}`;
+      if(fc>=seg.fcMin&&fc<=seg.fcMax){
+        // Na zona — parabeniza
+        say(pick([
+          `${n()}, FC perfeita na fase "${segName}"! Mantém esse ritmo.`,
+          `Isso aí, ${n()}! Você tá exatamente na zona certa. Continua!`,
+          `FC no alvo, ${n()}! ${fc} bpm — perfeito para essa fase.`,
+        ]));
+      } else if(fc<seg.fcMin){
+        // Abaixo
+        say(pick([
+          `${n()}, aumenta o ritmo! FC atual ${fc}, precisa chegar em ${seg.fcMin} bpm para a fase "${segName}".`,
+          `Acelera, ${n()}! Você tá em ${fc} bpm, o alvo é ${seg.fcMin}–${seg.fcMax} bpm.`,
+          `Falta esforço, ${n()}! Sobe a FC para pelo menos ${seg.fcMin} bpm.`,
+        ]));
+      } else {
+        // Acima
+        say(pick([
+          `${n()}, diminui o ritmo! FC em ${fc}, o alvo da fase "${segName}" é ${seg.fcMax} bpm no máximo.`,
+          `Segura, ${n()}! Você tá em ${fc} bpm, acima do planejado. Traz pra ${seg.fcMax} bpm.`,
+          `Reduz a intensidade, ${n()}! FC de ${fc} tá alta demais para essa fase.`,
+        ]));
+      }
+      return;
+    }
+  }
+
+  // A cada 2 minutos: update geral
+  if(S.sec>60&&S.sec%120===0){
+    say(pick([`${n()}, ${m} minutos de treino. Continua assim!`,`Tá ótimo, ${n()}. ${m} minutos. Mantém o foco.`]));
+    return;
+  }
+
+  // Marcadores de km
   const ki=Math.floor(km);
-  if(ki>_lkm&&ki>0){_lkm=ki;const msg={1:`Primeiro quilômetro, ${n()}! Ótimo começo.`,2:`Dois quilômetros, ${n()}! Você tá mandando bem!`,3:`Três quilômetros, ${n()}! Isso é consistência.`,5:`CINCO QUILÔMETROS, ${n()}! Que treino incrível!`}[ki];if(msg){say(msg);return;}}
-  if(!_half&&S.segs.length){const tot=S.segs.filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);if(tot>0&&km>=tot/2){_half=true;say(pick([`${n()}, metade da distância! O mais difícil já passou.`,`Meia distância, ${n()}! Vai terminar forte!`]));return;}}
-  if(zone&&S.segs.length&&S.sec%30===0){
-    const tg=getCurrentTargetZone();
-    if(tg&&zone!==tg){const zOrd=['blue','green','yellow','red'];if(zOrd.indexOf(zone)>zOrd.indexOf(tg))say(pick([`${n()}, diminui um pouco — você tá acima da zona ${ZI[tg].n}.`,`Segura o ritmo, ${n()}. Tá forçando mais que o planejado.`]));else say(pick([`${n()}, acelera! Você tá abaixo da zona ${ZI[tg].n}.`,`Força mais, ${n()}! A zona ${ZI[tg].n} pede mais esforço.`]));}
+  if(ki>_lkm&&ki>0){
+    _lkm=ki;
+    const msg={1:`Primeiro quilômetro, ${n()}! Ótimo começo.`,2:`Dois quilômetros, ${n()}! Mandando bem!`,3:`Três quilômetros, ${n()}! Consistência total.`,5:`CINCO QUILÔMETROS, ${n()}! Que treino!`}[ki];
+    if(msg){say(msg);return;}
   }
 }
 
 function getCurrentTargetZone(){
-  if(!S.segs.length)return null;
-  let acc=0;
-  for(const seg of S.segs){acc+=(seg.dist||0);if(S.gps.dist<=acc||seg.mode==='time')return seg.zone;}
-  return S.segs[S.segs.length-1].zone;
+  const idx=getCurrentSegIdx();
+  return idx>=0?S.segs[idx].zone:null;
 }
 
 function updateZoneUI(zone){
@@ -871,9 +1029,34 @@ function renderSegBar(){
 
 function finishTreino(){
   clearInterval(S.iv);stopGPS();S.active=false;
+
+  // Pontuação final — mesma lógica do calcScoreAccum
   let tot=0,wt=0;
-  if(S.segs.length){const avg=S.fcLog.length?Math.round(S.fcLog.reduce((a,v)=>a+v,0)/S.fcLog.length):S.fc;S.segs.forEach(seg=>{let pts=0;if(avg>=seg.fcMin&&avg<=seg.fcMax){pts=80+20*(1-Math.abs(avg-(seg.fcMin+seg.fcMax)/2)/((seg.fcMax-seg.fcMin)/2+1));}else if(avg<seg.fcMin){pts=Math.max(10,70-(seg.fcMin-avg)*2);}else{pts=Math.max(20,75-(avg-seg.fcMax)*2);}tot+=pts*(seg.dist||seg.dur||1);wt+=(seg.dist||seg.dur||1);});}
-  const sc=S.livre?70:Math.round(wt?tot/wt:50);
+  if(S.segs.length&&S.segFcLog){
+    S.segs.forEach((seg,i)=>{
+      const log=S.segFcLog[i];
+      if(!log||!log.fc.length)return; // não iniciado = 0, não conta
+      const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
+      const w=seg.dist||seg.dur||1;
+      let pts=0;
+      if(avg>=seg.fcMin&&avg<=seg.fcMax){
+        const mid=(seg.fcMin+seg.fcMax)/2;
+        const range=(seg.fcMax-seg.fcMin)/2||1;
+        pts=60+40*(1-Math.abs(avg-mid)/range);
+      } else if(avg<seg.fcMin){
+        pts=Math.max(0,60-(seg.fcMin-avg)*3);
+      } else {
+        pts=Math.max(0,60-(avg-seg.fcMax)*3);
+      }
+      tot+=pts*w;wt+=w;
+    });
+  }
+  // Fator de conclusão — interrompeu antes penaliza
+  const segsFeitos=S.segFcLog?S.segFcLog.filter(l=>l.fc.length>0).length:0;
+  const totalSegs=S.segs.length||1;
+  const comp=totalSegs>0?segsFeitos/totalSegs:1;
+  const base=wt>0?Math.round(tot/wt):0;
+  const sc=S.livre?Math.min(70,Math.round(base*0.7)):Math.round(base*comp);
   const m=Math.floor(S.sec/60),s=S.sec%60;
   let pace='—';if(S.gps.dist>0.01){const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);pace=pm+':'+pad(ps)+' /km';}
   S.pend={date:new Date().toLocaleDateString('pt-BR'),dur:pad(m)+':'+pad(s),dist:S.gps.dist.toFixed(2)+' km',pace,fcMax:S.fcMax,score:sc,zt:{...S.zt},route:[...S.gps.route]};
