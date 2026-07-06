@@ -608,10 +608,10 @@ function startGPS(){
   S.wId=navigator.geolocation.watchPosition(pos=>{
     const la=pos.coords.latitude,lo=pos.coords.longitude;
     const acc=pos.coords.accuracy||999;
-    if(acc>50)return; // ignora leituras imprecisas acima de 50m
+    if(acc>50)return;
     if(S.gps.last){
       const d=hav(S.gps.last[0],S.gps.last[1],la,lo);
-      if(d<0.003)return; // ignora movimentos < 3 metros (ruído GPS)
+      if(d<0.003)return;
       S.gps.dist+=d;
     }
     S.gps.last=[la,lo];
@@ -622,6 +622,19 @@ function startGPS(){
   },err=>{
     console.warn('GPS erro:',err.message);
   },{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
+}
+
+function stopGPS(){
+  if(S.wId!==null){
+    navigator.geolocation.clearWatch(S.wId);
+    S.wId=null;
+  }
+}
+
+function hav(a,b,c,d){
+  const R=6371,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180;
+  const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;
+  return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
 function drawMap(id){
@@ -1172,53 +1185,104 @@ function renderSegBar(){
 }
 
 function finishTreino(){
-  clearInterval(S.iv);stopGPS();S.active=false;
+  try{
+    clearInterval(S.iv);
+    stopGPS();
+    S.active=false;
 
-  // Fecha modal de aviso se estiver aberto
-  document.getElementById('mod-done').style.display='none';
-  let tot=0,wt=0;
-  if(S.segs.length&&S.segFcLog){
-    S.segs.forEach((seg,i)=>{
-      const log=S.segFcLog[i];
-      if(!log||!log.fc.length)return; // não iniciado = 0, não conta
-      const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
-      const w=seg.dist||seg.dur||1;
-      let pts=0;
-      if(avg>=seg.fcMin&&avg<=seg.fcMax){
-        const mid=(seg.fcMin+seg.fcMax)/2;
-        const range=(seg.fcMax-seg.fcMin)/2||1;
-        pts=60+40*(1-Math.abs(avg-mid)/range);
-      } else if(avg<seg.fcMin){
-        pts=Math.max(0,60-(seg.fcMin-avg)*3);
-      } else {
-        pts=Math.max(0,60-(avg-seg.fcMax)*3);
-      }
-      tot+=pts*w;wt+=w;
-    });
+    // Fecha modal de aviso
+    try{document.getElementById('mod-done').style.display='none';}catch(e){}
+
+    // Pontuação final
+    let tot=0,wt=0;
+    if(S.segs.length&&S.segFcLog){
+      S.segs.forEach((seg,i)=>{
+        const log=S.segFcLog[i];
+        if(!log||!log.fc.length)return;
+        const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
+        const w=seg.dist||seg.dur||1;
+        let pts=0;
+        if(avg>=seg.fcMin&&avg<=seg.fcMax){
+          const mid=(seg.fcMin+seg.fcMax)/2;
+          const range=(seg.fcMax-seg.fcMin)/2||1;
+          pts=60+40*(1-Math.abs(avg-mid)/range);
+        } else if(avg<seg.fcMin){
+          pts=Math.max(0,60-(seg.fcMin-avg)*3);
+        } else {
+          pts=Math.max(0,60-(avg-seg.fcMax)*3);
+        }
+        tot+=pts*w;wt+=w;
+      });
+    }
+    const segsFeitos=S.segFcLog?S.segFcLog.filter(l=>l.fc.length>0).length:0;
+    const totalSegs=S.segs.length||1;
+    const comp=totalSegs>0&&segsFeitos>0?segsFeitos/totalSegs:1;
+    const base=wt>0?Math.round(tot/wt):0;
+    const sc=S.livre?Math.min(70,Math.round(base*0.7)):Math.round(base*comp);
+
+    const m=Math.floor(S.sec/60),s=S.sec%60;
+    let pace='—';
+    if(S.gps.dist>0.01){
+      const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);
+      pace=pm+':'+pad(ps)+' /km';
+    }
+
+    // Garante que zt tem valores
+    const zt={
+      blue:S.zt.blue||0,
+      green:S.zt.green||0,
+      yellow:S.zt.yellow||0,
+      red:S.zt.red||0
+    };
+
+    S.pend={
+      date:new Date().toLocaleDateString('pt-BR'),
+      dur:pad(m)+':'+pad(s),
+      dist:S.gps.dist.toFixed(2)+' km',
+      pace,fcMax:S.fcMax,score:sc,zt,
+      route:[...S.gps.route]
+    };
+
+    // Preenche modal resultado
+    document.getElementById('res-sc').textContent=sc;
+    document.getElementById('res-arc').style.strokeDashoffset=364-(364*sc/100);
+    document.getElementById('res-lb').textContent=sc>=80?'🏆 Excelente execução!':sc>=60?'✅ Bom treino!':'💪 Continue evoluindo!';
+    document.getElementById('res-dist').textContent=S.pend.dist;
+    document.getElementById('res-dur').textContent=S.pend.dur;
+    document.getElementById('res-pace').textContent=pace;
+    document.getElementById('res-fcmax').textContent=S.fcMax?S.fcMax+' bpm':'—';
+
+    // Gráfico de zonas — mostra mesmo se zerado
+    const totZT=Object.values(zt).reduce((a,v)=>a+v,0)||1;
+    document.getElementById('res-zchart').innerHTML=['blue','green','yellow','red'].map(z=>{
+      const pct=Math.round(zt[z]/totZT*100);
+      const ts=zt[z],tm=Math.floor(ts/60),tss=ts%60;
+      return`<div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
+          <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(tss)} · ${pct}%</span>
+        </div>
+        <div style="height:8px;background:#1a2236;border-radius:4px;">
+          <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    setTimeout(()=>drawMap('res-map'),150);
+    say(pick([
+      `Treino encerrado, ${n()}! ${sc} pontos. Excelente trabalho!`,
+      `Muito bem, ${n()}! ${sc} pontos hoje.`,
+      `${n()}, terminou! ${sc} pontos. Recupera e hidrata!`
+    ]));
+
+    document.getElementById('mod-res').style.display='block';
+
+  }catch(err){
+    console.error('Erro ao finalizar treino:',err);
+    // Fallback — abre o modal mesmo com erro
+    document.getElementById('mod-res').style.display='block';
   }
-  // Fator de conclusão — interrompeu antes penaliza
-  const segsFeitos=S.segFcLog?S.segFcLog.filter(l=>l.fc.length>0).length:0;
-  const totalSegs=S.segs.length||1;
-  const comp=totalSegs>0?segsFeitos/totalSegs:1;
-  const base=wt>0?Math.round(tot/wt):0;
-  const sc=S.livre?Math.min(70,Math.round(base*0.7)):Math.round(base*comp);
-  const m=Math.floor(S.sec/60),s=S.sec%60;
-  let pace='—';if(S.gps.dist>0.01){const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);pace=pm+':'+pad(ps)+' /km';}
-  S.pend={date:new Date().toLocaleDateString('pt-BR'),dur:pad(m)+':'+pad(s),dist:S.gps.dist.toFixed(2)+' km',pace,fcMax:S.fcMax,score:sc,zt:{blue:S.zt.blue,green:S.zt.green,yellow:S.zt.yellow,red:S.zt.red},route:[...S.gps.route]};
-  document.getElementById('res-sc').textContent=sc;
-  document.getElementById('res-arc').style.strokeDashoffset=364-(364*sc/100);
-  document.getElementById('res-lb').textContent=sc>=80?'🏆 Excelente execução!':sc>=60?'✅ Bom treino!':'💪 Continue evoluindo!';
-  document.getElementById('res-dist').textContent=S.pend.dist;
-  document.getElementById('res-dur').textContent=S.pend.dur;
-  document.getElementById('res-pace').textContent=pace;
-  document.getElementById('res-fcmax').textContent=S.fcMax?S.fcMax+' bpm':'—';
-  const totZT=Object.values(S.zt).reduce((a,v)=>a+v,0)||1;
-  document.getElementById('res-zchart').innerHTML=['blue','green','yellow','red'].map(z=>{const pct=Math.round(S.zt[z]/totZT*100);const ts=S.zt[z],tm=Math.floor(ts/60),tss=ts%60;return`<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;margin-bottom:3px;"><span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span><span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(tss)} · ${pct}%</span></div><div style="height:8px;background:#1a2236;border-radius:4px;"><div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div></div></div>`;}).join('');
-  setTimeout(()=>drawMap('res-map'),100);
-  say(pick([`Treino concluído, ${n()}! Sua pontuação foi ${sc} pontos. Excelente trabalho!`,`Muito bem, ${n()}! ${sc} pontos hoje. Cada treino te deixa mais forte.`,`${n()}, terminou! ${sc} pontos. Recupera, hidrata e volta mais forte!`]));
-  document.getElementById('mod-res').style.display='block';
 }
-
 function saveWorkout(){if(S.pend){S.hist.unshift(S.pend);save();}closeRes();resetTreino();goTo('hist');}
 function closeRes(){document.getElementById('mod-res').style.display='none';}
 
