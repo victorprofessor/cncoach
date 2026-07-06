@@ -7,6 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="CnCoach">
 <title>CnCoach</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{height:100%;background:#0b0f1a;}
@@ -81,7 +83,15 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 .seg-bar{display:flex;height:40px;border-radius:8px;overflow:hidden;gap:2px;margin-bottom:10px;}
 .seg-p{display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
 
-/* MAP */
+/* MAP LEAFLET */
+.map-wrap{border-radius:12px;overflow:hidden;margin-bottom:12px;position:relative;}
+#map-live{height:220px;width:100%;border-radius:12px;z-index:1;}
+#map-result{height:220px;width:100%;border-radius:12px;z-index:1;}
+.map-badge{position:absolute;bottom:8px;left:8px;z-index:999;background:rgba(11,15,26,.85);border-radius:6px;padding:4px 10px;font-size:11px;color:#7a8fbb;pointer-events:none;}
+.leaflet-container{background:#1a2236!important;}
+.leaflet-tile{filter:brightness(.85) saturate(.7)!important;}
+
+/* MAP canvas (fallback) */
 .map-box{background:#1a2236;border-radius:12px;overflow:hidden;margin-bottom:12px;}
 #map-cv,#res-map{width:100%;height:160px;display:block;}
 
@@ -313,11 +323,9 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       </div>
     </div>
 
-    <div class="map-box" style="height:200px;margin-bottom:12px;position:relative;">
-      <canvas id="map-cv" style="width:100%;height:200px;display:block;border-radius:12px;"></canvas>
-      <div style="position:absolute;bottom:8px;left:8px;background:rgba(11,15,26,.8);border-radius:6px;padding:4px 8px;font-size:11px;color:#7a8fbb;">
-        🟢 Início &nbsp; 🔴 Atual
-      </div>
+    <div class="map-wrap">
+      <div id="map-live"></div>
+      <div class="map-badge">🟢 Início &nbsp; 🔵 Atual</div>
     </div>
 
     <div class="card" style="text-align:center;">
@@ -411,7 +419,9 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     </div>
 
     <!-- Mapa -->
-    <div class="map-box" id="det-map-wrap"><canvas id="det-map"></canvas></div>
+    <div class="map-wrap" id="det-map-wrap" style="display:none;">
+      <div id="map-result" style="height:200px;border-radius:12px;"></div>
+    </div>
 
     <!-- Comparativo com anterior -->
     <div class="card" id="det-comp-card" style="margin-bottom:10px;display:none;">
@@ -451,11 +461,124 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 <!-- NAV -->
 <nav class="nav">
   <button class="nb on" id="nb-home" onclick="goTo('home')"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Início</button>
-  <button class="nb" id="nb-eval" onclick="goTo('eval')"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>Avaliar</button>
+  <button class="nb" id="nb-plano" onclick="goTo('plano')"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>Plano</button>
   <button class="nb" id="nb-treino" onclick="goTo('treino')"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Treino</button>
   <button class="nb" id="nb-hist" onclick="goTo('hist')"><svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>Histórico</button>
   <button class="nb" id="nb-perfil" onclick="goTo('perfil')"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>Perfil</button>
 </nav>
+
+<!-- ── PLANO SEMANAL ── -->
+<div class="pg" id="pg-plano">
+
+  <!-- Metas semanais -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div class="ct" style="margin:0;">🎯 Metas da Semana</div>
+      <button onclick="openGoalModal()" style="background:#243050;border:1px solid #2a3a55;border-radius:6px;color:#3b9eff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;">Editar</button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <!-- Meta de distância -->
+      <div>
+        <div style="font-size:11px;color:#7a8fbb;margin-bottom:4px;">Distância</div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <div style="font-size:22px;font-weight:900;color:#3b9eff;" id="goal-dist-cur">0</div>
+          <div style="font-size:12px;color:#7a8fbb;" id="goal-dist-max">/ 0 km</div>
+        </div>
+        <div style="height:6px;background:#1a2236;border-radius:3px;margin-top:6px;overflow:hidden;">
+          <div id="goal-dist-bar" style="height:100%;background:#3b9eff;border-radius:3px;width:0%;transition:width .5s;"></div>
+        </div>
+      </div>
+      <!-- Meta de treinos -->
+      <div>
+        <div style="font-size:11px;color:#7a8fbb;margin-bottom:4px;">Treinos</div>
+        <div style="display:flex;align-items:baseline;gap:4px;">
+          <div style="font-size:22px;font-weight:900;color:#00c853;" id="goal-tr-cur">0</div>
+          <div style="font-size:12px;color:#7a8fbb;" id="goal-tr-max">/ 0 treinos</div>
+        </div>
+        <div style="height:6px;background:#1a2236;border-radius:3px;margin-top:6px;overflow:hidden;">
+          <div id="goal-tr-bar" style="height:100%;background:#00c853;border-radius:3px;width:0%;transition:width .5s;"></div>
+        </div>
+      </div>
+    </div>
+    <!-- Calorias da semana -->
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid #2a3a55;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:12px;color:#7a8fbb;">🔥 Calorias esta semana</div>
+      <div style="font-size:16px;font-weight:800;color:#ff9800;" id="goal-kcal-week">0 kcal</div>
+    </div>
+  </div>
+
+  <!-- Header semana -->
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+    <button onclick="planWeek(-1)" style="background:#243050;border:1px solid #2a3a55;border-radius:8px;color:#e8f0fe;font-size:18px;padding:6px 12px;cursor:pointer;">‹</button>
+    <div style="text-align:center;">
+      <div style="font-size:16px;font-weight:800;" id="plan-week-label">Semana atual</div>
+      <div style="font-size:12px;color:#7a8fbb;" id="plan-week-range">—</div>
+    </div>
+    <button onclick="planWeek(+1)" style="background:#243050;border:1px solid #2a3a55;border-radius:8px;color:#e8f0fe;font-size:18px;padding:6px 12px;cursor:pointer;">›</button>
+  </div>
+
+  <!-- Resumo da semana -->
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;">
+    <div class="stat"><div class="sv cb" id="plan-done">0</div><div class="sl">Feitos</div></div>
+    <div class="stat"><div class="sv" style="color:#ffd600;" id="plan-total">0</div><div class="sl">Planejados</div></div>
+    <div class="stat"><div class="sv cg" id="plan-pct">0%</div><div class="sl">Adesão</div></div>
+  </div>
+
+  <!-- Calendário semanal -->
+  <div id="plan-calendar"></div>
+
+  <!-- Sem avaliação -->
+  <div id="plan-noeval" style="display:none;text-align:center;padding:30px 20px;">
+    <div style="font-size:40px;margin-bottom:10px;">📅</div>
+    <div style="font-size:15px;font-weight:700;margin-bottom:6px;">Faça a avaliação primeiro</div>
+    <div style="font-size:13px;color:#7a8fbb;margin-bottom:16px;">O plano semanal é gerado com base no seu nível de aptidão.</div>
+    <button class="btn btn-b" onclick="goTo('eval')">Fazer Avaliação</button>
+  </div>
+
+  <!-- Legenda zonas -->
+  <div class="card" style="margin-top:4px;">
+    <div class="ct">Legenda</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#3b9eff;display:inline-block;"></span>Azul</span>
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#00c853;display:inline-block;"></span>Verde</span>
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ffd600;display:inline-block;"></span>Amarelo</span>
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ff3d3d;display:inline-block;"></span>Vermelho</span>
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#2a3a55;display:inline-block;"></span>Descanso</span>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL METAS -->
+<div id="mod-goal" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#131929;border-radius:24px 24px 0 0;padding:22px 18px 52px;border-top:1px solid #2a3a55;">
+    <div style="width:40px;height:4px;background:#2a3a55;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:18px;text-align:center;">🎯 Metas Semanais</div>
+    <label class="lbl">Meta de distância (km/semana)</label>
+    <input class="inp" type="number" id="goal-dist-input" placeholder="Ex: 20" inputmode="numeric" style="margin-bottom:14px;">
+    <label class="lbl">Meta de treinos (por semana)</label>
+    <input class="inp" type="number" id="goal-tr-input" placeholder="Ex: 4" inputmode="numeric" style="margin-bottom:6px;">
+    <div style="font-size:12px;color:#7a8fbb;margin-bottom:18px;">💡 Dica: Recomendado <span id="goal-sugg"></span> treinos/semana para seu nível.</div>
+    <div class="inp-grp">
+      <label class="lbl">Seu peso (kg) — para cálculo de calorias</label>
+      <input class="inp" type="number" id="goal-peso-input" placeholder="Ex: 75" inputmode="numeric">
+    </div>
+    <button class="btn btn-b" onclick="saveGoals()">Salvar Metas</button>
+    <button class="btn btn-s mt8" onclick="document.getElementById('mod-goal').style.display='none'">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL DETALHE DIA DO PLANO -->
+<div id="mod-plan-day" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#131929;border-radius:24px 24px 0 0;padding:22px 18px 52px;border-top:1px solid #2a3a55;max-height:90vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;background:#2a3a55;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:800;" id="pday-title">—</div>
+      <button onclick="document.getElementById('mod-plan-day').style.display='none'" style="background:none;border:none;color:#7a8fbb;font-size:22px;cursor:pointer;">✕</button>
+    </div>
+    <div id="pday-content"></div>
+    <div id="pday-actions" style="margin-top:16px;"></div>
+  </div>
+</div>
 
 <!-- MODAL SEGMENTO -->
 <div id="mod-seg" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.8);">
@@ -522,8 +645,12 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div class="stat"><div class="sv" id="res-pace">—</div><div class="sl">Pace médio</div></div>
       <div class="stat"><div class="sv cr" id="res-fcmax">—</div><div class="sl">FC máxima</div></div>
     </div>
+    <div class="stat" style="margin-bottom:12px;"><div class="sv" style="color:#ff9800;" id="res-kcal">— kcal</div><div class="sl">🔥 Calorias estimadas</div></div>
     <div class="card" style="margin-top:4px;"><div class="ct">Tempo por zona</div><div id="res-zchart"></div></div>
-    <div class="map-box" style="margin-bottom:12px;"><canvas id="res-map"></canvas></div>
+    <div class="map-wrap" id="res-map-wrap">
+      <div id="map-result"></div>
+      <div class="map-badge">Rota do treino</div>
+    </div>
     <button class="btn btn-g" onclick="saveWorkout()">Salvar Treino</button>
     <button class="btn btn-s" onclick="closeRes()">Fechar sem salvar</button>
   </div>
@@ -531,7 +658,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
 <script>
 // ── STATE ──
-const S={user:null,segs:[],hist:[],fc:70,gps:{on:false,lat:null,lng:null,route:[],dist:0,last:null},active:false,livre:false,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cSec:720,cIv:null,cOn:false,wId:null,segT:'dist',trMode:'seg'};
+const S={user:null,segs:[],hist:[],plan:{},goals:{distMeta:0,trMeta:0,peso:70},fc:70,gps:{on:false,lat:null,lng:null,route:[],dist:0,last:null},active:false,livre:false,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cSec:720,cIv:null,cOn:false,wId:null,segT:'dist',trMode:'seg'};
 
 // ── ZONES ──
 const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#3b9eff',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
@@ -541,7 +668,11 @@ function calcZones(fcMax,fcRep){const r=fcMax-fcRep;return{blue:{min:Math.round(
 function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.min)return'red';if(fc>=z.yellow.min)return'yellow';if(fc>=z.green.min)return'green';if(fc>=z.blue.min)return'blue';return null;}
 
 // ── STORAGE ──
-function load(){try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];}catch(e){}}
+function load(){
+  try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.goals=d.g||{distMeta:0,trMeta:0,peso:70};}catch(e){}
+  try{const k=localStorage.getItem('cnc_oai');if(k){_openaiKey=k;_unlocked=true;}}catch(e){}
+}
+function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},g:S.goals||{}}));}catch(e){}}
 function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist}));}catch(e){}}
 
 // ── TOAST ──
@@ -549,8 +680,10 @@ let _tto;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_tto);_tto=setTimeout(()=>t.classList.remove('show'),4000);}
 
 // ── VOICE (Web Speech API) ──
-let _voice=null,_unlocked=false;
+// ── VOICE ENGINE — OpenAI TTS + fallback Web Speech ──
+let _voice=null,_unlocked=false,_openaiKey='',_audioCtx=null;
 const _ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
+let _speakQueue=[],_speaking=false;
 
 function loadVoice(){
   if(!('speechSynthesis' in window))return;
@@ -558,32 +691,86 @@ function loadVoice(){
   pick();speechSynthesis.onvoiceschanged=pick;
 }
 
-function say(msg){
-  toast(msg);
-  if(!('speechSynthesis' in window)||!_unlocked)return;
+// OpenAI TTS — voz nova (feminina, natural em PT-BR)
+async function speakOpenAI(msg){
+  try{
+    const res=await fetch('https://api.openai.com/v1/audio/speech',{
+      method:'POST',
+      headers:{'Authorization':'Bearer '+_openaiKey,'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'tts-1',        // tts-1-hd para maior qualidade (mais lento)
+        input:msg,
+        voice:'nova',         // nova = feminina, calorosa, natural em PT-BR
+        speed:0.95,           // levemente mais devagar — soa mais humano
+        response_format:'mp3'
+      })
+    });
+    if(!res.ok){console.warn('OpenAI TTS erro:',res.status);speakBrowser(msg);return;}
+    const blob=await res.blob();
+    const url=URL.createObjectURL(blob);
+    const audio=new Audio(url);
+    audio.onended=()=>{URL.revokeObjectURL(url);_speaking=false;drainQueue();};
+    audio.onerror=()=>{_speaking=false;drainQueue();speakBrowser(msg);};
+    _speaking=true;
+    await audio.play();
+  }catch(e){
+    console.warn('OpenAI TTS falhou:',e);
+    speakBrowser(msg);
+  }
+}
+
+// Fallback Web Speech
+function speakBrowser(msg){
+  if(!('speechSynthesis' in window)||!_unlocked){_speaking=false;drainQueue();return;}
   const clean=msg.replace(/[^\w\sÀ-ú.,!?—]/g,'').trim();
-  if(!clean)return;
+  if(!clean){_speaking=false;drainQueue();return;}
   speechSynthesis.cancel();
   setTimeout(()=>{
     const u=new SpeechSynthesisUtterance(clean);
     u.lang='pt-BR';u.rate=_ios?.88:.86;u.pitch=1.08;u.volume=1;
     if(_voice)u.voice=_voice;
-    if(_ios){const ka=setInterval(()=>{if(!speechSynthesis.speaking){clearInterval(ka);return;}speechSynthesis.pause();speechSynthesis.resume();},8000);u.onend=()=>clearInterval(ka);}
-    speechSynthesis.speak(u);
+    if(_ios){const ka=setInterval(()=>{if(!speechSynthesis.speaking){clearInterval(ka);return;}speechSynthesis.pause();speechSynthesis.resume();},8000);u.onend=()=>{clearInterval(ka);_speaking=false;drainQueue()};}
+    else u.onend=()=>{_speaking=false;drainQueue();};
+    _speaking=true;speechSynthesis.speak(u);
   },60);
+}
+
+function drainQueue(){
+  if(!_speakQueue.length){_speaking=false;return;}
+  doSpeak(_speakQueue.shift());
+}
+
+function doSpeak(msg){
+  if(_openaiKey) speakOpenAI(msg);
+  else speakBrowser(msg);
+}
+
+function say(msg){
+  toast(msg);
+  if(!_unlocked&&!_openaiKey)return;
+  // Durante treino ativo: descarta fila acumulada, só mantém última
+  if(_speakQueue.length>1)_speakQueue=[_speakQueue[_speakQueue.length-1]];
+  if(_speaking){_speakQueue.push(msg);return;}
+  doSpeak(msg);
 }
 
 function activateVoice(){
   document.getElementById('btn-voice').style.display='none';
   checkBanner();
-  if(!('speechSynthesis' in window))return;
-  speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance('.');
-  u.volume=0.01;u.rate=2;u.lang='pt-BR';
-  u.onend=()=>{_unlocked=true;loadVoice();setTimeout(()=>say('Coach de voz ativado!'),300);};
-  setTimeout(()=>{if(!_unlocked){_unlocked=true;loadVoice();}},2000);
-  speechSynthesis.speak(u);
+  _unlocked=true;
+  if('speechSynthesis' in window){
+    speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance('.');
+    u.volume=0.01;u.rate=2;u.lang='pt-BR';
+    u.onend=()=>{loadVoice();};
+    speechSynthesis.speak(u);
+  }
+  loadVoice();
+  setTimeout(()=>say('Coach de voz ativado!'),500);
 }
+
+// UI chave OpenAI — removido
+function updateOpenAIUI(){}
 
 // ── GPS ──
 function activateGPS(){
@@ -618,7 +805,7 @@ function startGPS(){
     S.gps.lat=la;S.gps.lng=lo;
     S.gps.route.push([la,lo]);
     S.gps.zoneRoute.push(zoneFor(S.fc)||'blue');
-    drawMap('map-cv');
+    updateMapLive();
   },err=>{
     console.warn('GPS erro:',err.message);
   },{enableHighAccuracy:true,maximumAge:1000,timeout:15000});
@@ -637,63 +824,154 @@ function hav(a,b,c,d){
   return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));
 }
 
-function drawMap(id){
-  const cv=document.getElementById(id);
-  if(!cv)return;
-  const W=cv.offsetWidth||cv.parentElement?.offsetWidth||340;
-  const H=cv.offsetHeight||200;
-  if(cv.width!==W)cv.width=W;
-  if(cv.height!==H)cv.height=H;
-  const ctx=cv.getContext('2d');
-  ctx.fillStyle='#1a2236';ctx.fillRect(0,0,W,H);
+// ── MAPA LEAFLET ──
+let _mapLive = null;       // mapa ao vivo
+let _mapResult = null;     // mapa do resultado
+let _liveMarker = null;    // marcador posição atual
+let _livePolyline = null;  // linha do percurso ao vivo
+let _startMarker = null;   // marcador de início
 
-  const r=S.gps.route;
-  if(r.length<2){
-    ctx.fillStyle='#3d5070';ctx.font='13px -apple-system,sans-serif';
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(S.gps.on?'Aguardando sinal GPS...':'GPS inativo — ative antes de iniciar',W/2,H/2);
-    return;
-  }
+const ZONE_COLORS = {blue:'#3b9eff',green:'#00c853',yellow:'#ffd600',red:'#ff3d3d'};
 
-  const lats=r.map(p=>p[0]),lgs=r.map(p=>p[1]),pad=24;
-  const mnLa=Math.min(...lats),mxLa=Math.max(...lats);
-  const mnLg=Math.min(...lgs),mxLg=Math.max(...lgs);
-  const tx=lg=>mxLg===mnLg?W/2:pad+(lg-mnLg)/(mxLg-mnLg)*(W-pad*2);
-  const ty=la=>mxLa===mnLa?H/2:H-pad-(la-mnLa)/(mxLa-mnLa)*(H-pad*2);
+function initMapLive(){
+  if(_mapLive) return;
+  try{
+    _mapLive = L.map('map-live',{
+      zoomControl:false,
+      attributionControl:false,
+      dragging:true,
+      touchZoom:true,
+    }).setView([-8.2, -35.9], 15); // Surubim como centro padrão
 
-  // Sombra do percurso
-  ctx.beginPath();ctx.strokeStyle='rgba(0,0,0,.4)';ctx.lineWidth=5;ctx.lineJoin='round';
-  r.forEach((p,i)=>i===0?ctx.moveTo(tx(p[1])+1,ty(p[0])+1):ctx.lineTo(tx(p[1])+1,ty(p[0])+1));
-  ctx.stroke();
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,
+      opacity:0.85,
+    }).addTo(_mapLive);
 
-  // Percurso colorido por zona
-  const zr=S.gps.zoneRoute||[];
-  const zColors={blue:'#3b9eff',green:'#00c853',yellow:'#ffd600',red:'#ff3d3d'};
-  for(let i=1;i<r.length;i++){
-    const z=zr[i]||'blue';
-    ctx.beginPath();ctx.strokeStyle=zColors[z]||'#3b9eff';ctx.lineWidth=3.5;ctx.lineJoin='round';
-    ctx.moveTo(tx(r[i-1][1]),ty(r[i-1][0]));ctx.lineTo(tx(r[i][1]),ty(r[i][0]));ctx.stroke();
-  }
-
-  // Ponto início
-  ctx.beginPath();ctx.fillStyle='#00c853';ctx.strokeStyle='#fff';ctx.lineWidth=2;
-  ctx.arc(tx(r[0][1]),ty(r[0][0]),6,0,Math.PI*2);ctx.fill();ctx.stroke();
-
-  // Ponto atual (pulsando via tamanho maior)
-  const last=r[r.length-1];
-  ctx.beginPath();ctx.fillStyle='#ff3d3d';ctx.strokeStyle='#fff';ctx.lineWidth=2;
-  ctx.arc(tx(last[1]),ty(last[0]),7,0,Math.PI*2);ctx.fill();ctx.stroke();
-
-  // Distância no canto
-  ctx.fillStyle='rgba(11,15,26,.75)';ctx.strokeStyle='#2a3a55';ctx.lineWidth=1;
-  const label=S.gps.dist.toFixed(2)+' km';
-  ctx.font='bold 12px -apple-system,sans-serif';
-  const tw=ctx.measureText(label).width;
-  ctx.beginPath();ctx.roundRect?ctx.roundRect(W-tw-20,8,tw+16,24,6):ctx.rect(W-tw-20,8,tw+16,24);
-  ctx.fill();ctx.stroke();
-  ctx.fillStyle='#e8f0fe';ctx.textAlign='right';ctx.textBaseline='middle';
-  ctx.fillText(label,W-10,20);
+    // Controle de zoom pequeno
+    L.control.zoom({position:'bottomright'}).addTo(_mapLive);
+  }catch(e){ console.warn('Leaflet init erro:',e); }
 }
+
+function updateMapLive(){
+  if(!_mapLive) return;
+  const r = S.gps.route;
+  const zr = S.gps.zoneRoute||[];
+  if(r.length < 1) return;
+
+  const lat = r[r.length-1][0];
+  const lng = r[r.length-1][1];
+
+  // Centraliza no ponto atual
+  _mapLive.setView([lat, lng], 16, {animate:true, duration:0.5});
+
+  // Marcador de início
+  if(!_startMarker && r.length >= 1){
+    const startIcon = L.divIcon({
+      className:'',
+      html:'<div style="width:12px;height:12px;border-radius:50%;background:#00c853;border:2px solid #fff;box-shadow:0 0 4px rgba(0,0,0,.5);"></div>',
+      iconSize:[12,12], iconAnchor:[6,6]
+    });
+    _startMarker = L.marker([r[0][0],r[0][1]],{icon:startIcon}).addTo(_mapLive);
+  }
+
+  // Marcador posição atual (pulsante)
+  const curIcon = L.divIcon({
+    className:'',
+    html:`<div style="width:16px;height:16px;border-radius:50%;background:#3b9eff;border:3px solid #fff;box-shadow:0 0 8px rgba(59,158,255,.8);animation:pulse .8s ease-in-out infinite;"></div>`,
+    iconSize:[16,16], iconAnchor:[8,8]
+  });
+  if(_liveMarker) _liveMarker.setLatLng([lat,lng]).setIcon(curIcon);
+  else _liveMarker = L.marker([lat,lng],{icon:curIcon}).addTo(_mapLive);
+
+  // Desenha percurso colorido por segmentos de zona
+  if(_livePolyline){ _mapLive.removeLayer(_livePolyline); _livePolyline=null; }
+  if(r.length >= 2){
+    // Agrupa pontos por zona e desenha segmentos coloridos
+    let i=0;
+    while(i < r.length-1){
+      const zone = zr[i]||'blue';
+      let j=i+1;
+      while(j < r.length && (zr[j]||'blue')===zone) j++;
+      const segment = r.slice(i, j+1);
+      if(segment.length >= 2){
+        L.polyline(segment, {
+          color: ZONE_COLORS[zone]||'#3b9eff',
+          weight: 4,
+          opacity: 0.9,
+          lineJoin:'round',
+          lineCap:'round',
+        }).addTo(_mapLive);
+      }
+      i=j;
+    }
+  }
+}
+
+function initMapResult(route, zoneRoute){
+  // Remove mapa anterior se existir
+  if(_mapResult){ _mapResult.remove(); _mapResult=null; }
+  if(!route||route.length<2) return;
+
+  try{
+    _mapResult = L.map('map-result',{
+      zoomControl:true,
+      attributionControl:false,
+      dragging:true,
+      touchZoom:true,
+    });
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+      maxZoom:19,
+      opacity:0.85,
+    }).addTo(_mapResult);
+
+    // Percurso colorido por zona
+    const zr = zoneRoute||[];
+    let i=0;
+    while(i < route.length-1){
+      const zone = zr[i]||'blue';
+      let j=i+1;
+      while(j < route.length && (zr[j]||'blue')===zone) j++;
+      const segment = route.slice(i, j+1);
+      if(segment.length >= 2){
+        L.polyline(segment,{
+          color:ZONE_COLORS[zone]||'#3b9eff',
+          weight:4, opacity:.9,
+          lineJoin:'round', lineCap:'round',
+        }).addTo(_mapResult);
+      }
+      i=j;
+    }
+
+    // Marcador início
+    const startIcon = L.divIcon({
+      className:'',
+      html:'<div style="width:12px;height:12px;border-radius:50%;background:#00c853;border:2px solid #fff;"></div>',
+      iconSize:[12,12], iconAnchor:[6,6]
+    });
+    L.marker([route[0][0],route[0][1]],{icon:startIcon})
+      .bindPopup('Início').addTo(_mapResult);
+
+    // Marcador fim
+    const endIcon = L.divIcon({
+      className:'',
+      html:'<div style="width:12px;height:12px;border-radius:50%;background:#ff3d3d;border:2px solid #fff;"></div>',
+      iconSize:[12,12], iconAnchor:[6,6]
+    });
+    const last = route[route.length-1];
+    L.marker([last[0],last[1]],{icon:endIcon})
+      .bindPopup('Fim').addTo(_mapResult);
+
+    // Ajusta zoom para mostrar toda a rota
+    const bounds = L.latLngBounds(route.map(p=>[p[0],p[1]]));
+    _mapResult.fitBounds(bounds, {padding:[20,20]});
+
+  }catch(e){ console.warn('Leaflet result erro:',e); }
+}
+
+// Mantém função drawMap como stub para não quebrar referências antigas
+function drawMap(id){ if(id==='map-cv') updateMapLive(); }
 
 // ── BLE ──
 const BLE={dev:null,char:null,on:false,HR:'0000180d-0000-1000-8000-00805f9b34fb',HC:'00002a37-0000-1000-8000-00805f9b34fb'};
@@ -738,6 +1016,7 @@ function goTo(name){
   document.querySelectorAll('.nb').forEach(b=>b.classList.remove('on'));
   document.getElementById('pg-'+name).classList.add('on');
   const nb=document.getElementById('nb-'+name);if(nb)nb.classList.add('on');
+  if(name==='plano'){renderPlan();}
   if(name==='hist'){renderHist();setTimeout(renderScoreChart,80);}
   if(name==='perfil')renderPerfil();
   if(name==='home')renderHome();
@@ -906,19 +1185,27 @@ function startTreino(){
   S.active=true;S.livre=false;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
   S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
   S._doneAnnounced=false;
+  // Reset mapa ao vivo
+  if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   initSegLogs();
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBarActive(0);}
-  startGPS();S.iv=setInterval(tick,1000);
+  startGPS();
+  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
+  S.iv=setInterval(tick,1000);
   say(pick(['Vamos lá, '+n()+'! Treino iniciado. Foco total agora.',''+n()+', é hora de treinar! Vai com tudo!']));
 }
 
 function startLivre(){
   S.active=true;S.livre=true;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
   S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
+  S._doneAnnounced=false;
+  if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   document.getElementById('seg-prog').style.display='none';
-  startGPS();S.iv=setInterval(tick,1000);
+  startGPS();
+  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
+  S.iv=setInterval(tick,1000);
   say(pick(['Treino livre, '+n()+'! Escuta seu corpo.',''+n()+', corre no seu ritmo — mas não tira o pé!']));
 }
 
@@ -1235,12 +1522,17 @@ function finishTreino(){
       red:S.zt.red||0
     };
 
+    // Calorias
+    const peso=(S.goals&&S.goals.peso)||70;
+    const kcal=calcKcal(zt,peso);
+
     S.pend={
       date:new Date().toLocaleDateString('pt-BR'),
       dur:pad(m)+':'+pad(s),
       dist:S.gps.dist.toFixed(2)+' km',
-      pace,fcMax:S.fcMax,score:sc,zt,
-      route:[...S.gps.route]
+      pace,fcMax:S.fcMax,score:sc,zt,kcal,
+      route:[...S.gps.route],
+      zoneRoute:[...(S.gps.zoneRoute||[])]
     };
 
     // Preenche modal resultado
@@ -1251,6 +1543,7 @@ function finishTreino(){
     document.getElementById('res-dur').textContent=S.pend.dur;
     document.getElementById('res-pace').textContent=pace;
     document.getElementById('res-fcmax').textContent=S.fcMax?S.fcMax+' bpm':'—';
+    document.getElementById('res-kcal').textContent=kcal>0?kcal+' kcal':'— kcal';
 
     // Gráfico de zonas — mostra mesmo se zerado
     const totZT=Object.values(zt).reduce((a,v)=>a+v,0)||1;
@@ -1268,7 +1561,7 @@ function finishTreino(){
       </div>`;
     }).join('');
 
-    setTimeout(()=>drawMap('res-map'),150);
+    setTimeout(()=>initMapResult(S.gps.route, S.gps.zoneRoute),300);
     say(pick([
       `Treino encerrado, ${n()}! ${sc} pontos. Excelente trabalho!`,
       `Muito bem, ${n()}! ${sc} pontos hoje.`,
@@ -1307,11 +1600,13 @@ function setPeriod(p){
 
 function renderHist(){
   // Stats gerais
+  const totalKm=S.hist.reduce((a,h)=>a+parseFloat(h.dist||0),0);
+  document.getElementById('ht-km').textContent=totalKm.toFixed(1);
+  const totalKcal=S.hist.reduce((a,h)=>a+(h.kcal||0),0);
+  // Atualiza stats do histórico
   document.getElementById('ht-total').textContent=S.hist.length;
   const best=S.hist.length?Math.max(...S.hist.map(h=>h.score)):null;
   document.getElementById('ht-best').textContent=best!==null?best+' pts':'—';
-  const totalKm=S.hist.reduce((a,h)=>a+parseFloat(h.dist||0),0);
-  document.getElementById('ht-km').textContent=totalKm.toFixed(1);
 
   renderPeriod();
   renderScoreChart();
@@ -1328,7 +1623,7 @@ function renderHist(){
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:700;">${em} ${h.score} pts · ${h.dist}</div>
         <div style="font-size:12px;color:#7a8fbb;">${h.date} · ${h.dur} · ${h.pace}</div>
-        <div style="font-size:12px;color:#7a8fbb;">FC máx ${h.fcMax} bpm</div>
+        <div style="font-size:12px;color:#7a8fbb;">FC máx ${h.fcMax} bpm${h.kcal?' · 🔥 '+h.kcal+' kcal':''}</div>
       </div>
       <div style="color:#7a8fbb;font-size:18px;">›</div>
     </div>`;
@@ -1459,9 +1754,7 @@ function openDetail(idx){
   const mapWrap=document.getElementById('det-map-wrap');
   if(h.route&&h.route.length>1){
     mapWrap.style.display='block';
-    const savedRoute=S.gps.route;
-    S.gps.route=h.route;
-    setTimeout(()=>{drawMap('det-map');S.gps.route=savedRoute;},80);
+    setTimeout(()=>initMapResult(h.route, h.zoneRoute||[]),300);
   } else {
     mapWrap.style.display='none';
   }
@@ -1554,6 +1847,200 @@ function exportPDF(){
   win.document.close();
 }
 
+// ── METAS E CALORIAS ──
+
+// Cálculo de calorias pelo método MET (Metabolic Equivalent of Task)
+// MET por zona: Azul=6, Verde=8, Amarelo=10, Vermelho=12
+const ZONE_MET={blue:6,green:8,yellow:10,red:12};
+
+function calcKcal(zt, pesoKg){
+  const peso=pesoKg||70; // fallback 70kg se não tiver peso
+  let total=0;
+  Object.keys(zt).forEach(z=>{
+    const minutos=(zt[z]||0)/60;
+    const met=ZONE_MET[z]||7;
+    // Fórmula: kcal = MET × peso(kg) × tempo(h)
+    total+=met*peso*(minutos/60);
+  });
+  return Math.round(total);
+}
+
+function getWeekKcal(dates){
+  let total=0;
+  const weekKeys=new Set(dates.map(d=>dateKey(d)));
+  S.hist.forEach(h=>{
+    if(!h.date)return;
+    // Converte data do histórico (dd/mm/aaaa) para chave (aaaa-mm-dd)
+    const parts=h.date.split('/');
+    if(parts.length!==3)return;
+    const key=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+    if(weekKeys.has(key)&&h.kcal) total+=h.kcal;
+  });
+  return total;
+}
+
+function getWeekStats(dates){
+  const weekKeys=new Set(dates.map(d=>dateKey(d)));
+  let km=0,treinos=0;
+  S.hist.forEach(h=>{
+    if(!h.date)return;
+    const parts=h.date.split('/');
+    if(parts.length!==3)return;
+    const key=`${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+    if(!weekKeys.has(key))return;
+    treinos++;
+    km+=parseFloat(h.dist||0);
+  });
+  return{km,treinos};
+}
+
+function openGoalModal(){
+  const g=S.goals||{};
+  document.getElementById('goal-dist-input').value=g.distMeta||'';
+  document.getElementById('goal-tr-input').value=g.trMeta||'';
+  document.getElementById('goal-peso-input').value=g.peso||'';
+  const sugg=S.user?[0,2,3,3,4,4,5,5,5,6,6][Math.min(S.user.score,10)]:3;
+  document.getElementById('goal-sugg').textContent=sugg;
+  document.getElementById('mod-goal').style.display='block';
+}
+
+function saveGoals(){
+  const dist=parseFloat(document.getElementById('goal-dist-input').value)||0;
+  const tr=parseInt(document.getElementById('goal-tr-input').value)||0;
+  const peso=parseFloat(document.getElementById('goal-peso-input').value)||0;
+  S.goals={distMeta:dist,trMeta:tr,peso};
+  save();
+  document.getElementById('mod-goal').style.display='none';
+  renderPlan();
+  toast('Metas salvas!');
+}
+
+function renderGoals(dates){
+  const g=S.goals||{distMeta:0,trMeta:0,peso:70};
+  const stats=getWeekStats(dates);
+  const kcalWeek=getWeekKcal(dates);
+
+  // Distância
+  const distPct=g.distMeta>0?Math.min(100,Math.round(stats.km/g.distMeta*100)):0;
+  document.getElementById('goal-dist-cur').textContent=stats.km.toFixed(1);
+  document.getElementById('goal-dist-max').textContent=g.distMeta>0?`/ ${g.distMeta} km`:'/ — km';
+  document.getElementById('goal-dist-bar').style.width=distPct+'%';
+  document.getElementById('goal-dist-bar').style.background=distPct>=100?'#00c853':'#3b9eff';
+
+  // Treinos
+  const trPct=g.trMeta>0?Math.min(100,Math.round(stats.treinos/g.trMeta*100)):0;
+  document.getElementById('goal-tr-cur').textContent=stats.treinos;
+  document.getElementById('goal-tr-max').textContent=g.trMeta>0?`/ ${g.trMeta} treinos`:'/ — treinos';
+  document.getElementById('goal-tr-bar').style.width=trPct+'%';
+  document.getElementById('goal-tr-bar').style.background=trPct>=100?'#00c853':'#00c853';
+
+  // Calorias da semana
+  document.getElementById('goal-kcal-week').textContent=kcalWeek>0?kcalWeek+' kcal':'0 kcal';
+
+  // Aviso de meta batida
+  if(g.distMeta>0&&stats.km>=g.distMeta&&_planWeekOffset===0){
+    document.getElementById('goal-dist-bar').style.background='#00c853';
+  }
+  if(g.trMeta>0&&stats.treinos>=g.trMeta&&_planWeekOffset===0){
+    document.getElementById('goal-tr-bar').style.background='#00c853';
+  }
+}
+const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+const DIAS_FULL=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
+let _planWeekOffset=0;
+
+function getPlanTemplate(score){
+  if(score<=2)return[null,{name:'Caminhada leve',emoji:'🚶',segs:[{zone:'blue',dur:20,label:'20 min'}]},null,{name:'Caminhada moderada',emoji:'🚶',segs:[{zone:'blue',dur:25,label:'25 min'}]},null,{name:'Caminhada progressiva',emoji:'🚶',segs:[{zone:'blue',dur:15,label:'15 min'},{zone:'green',dur:5,label:'5 min'},{zone:'blue',dur:10,label:'10 min'}]},null];
+  if(score<=4)return[null,{name:'Corrida leve 3km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'0.5km'},{zone:'green',dist:2,label:'2km'},{zone:'blue',dist:.5,label:'0.5km'}]},null,{name:'Fartlek suave',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'green',dist:1,label:'1km'},{zone:'yellow',dist:.5,label:'0.5km'},{zone:'green',dist:1,label:'1km'},{zone:'blue',dist:.5,label:'Cool'}]},{name:'Recuperação',emoji:'🚶',segs:[{zone:'blue',dur:20,label:'20 min'}]},{name:'Corrida 3km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'green',dist:2,label:'2km'},{zone:'blue',dist:.5,label:'Cool'}]},null];
+  if(score<=6)return[null,{name:'Intervalado 4km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'green',dist:1,label:'Z2'},{zone:'yellow',dist:1,label:'Z3'},{zone:'green',dist:1,label:'Z2'},{zone:'blue',dist:.5,label:'Cool'}]},{name:'Recuperação',emoji:'🚶',segs:[{zone:'blue',dur:25,label:'25 min'}]},{name:'Tempo run 3km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'yellow',dist:2,label:'2km limiar'},{zone:'blue',dist:.5,label:'Cool'}]},null,{name:'Long run 5km',emoji:'🏃',segs:[{zone:'blue',dist:1,label:'1km'},{zone:'green',dist:3,label:'3km'},{zone:'blue',dist:1,label:'1km'}]},null];
+  if(score<=8)return[null,{name:'Intervalado avançado',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'green',dist:1,label:'Z2'},{zone:'yellow',dist:1,label:'Z3'},{zone:'red',dist:.5,label:'Z4'},{zone:'yellow',dist:1,label:'Z3'},{zone:'blue',dist:.5,label:'Cool'}]},{name:'Recuperação',emoji:'🚶',segs:[{zone:'blue',dur:30,label:'30 min'}]},{name:'Tempo run 4km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'yellow',dist:3,label:'3km limiar'},{zone:'blue',dist:.5,label:'Cool'}]},null,{name:'Long run 7km',emoji:'🏃',segs:[{zone:'blue',dist:1,label:'1km'},{zone:'green',dist:5,label:'5km'},{zone:'blue',dist:1,label:'1km'}]},{name:'Regenerativo',emoji:'🚶',segs:[{zone:'blue',dur:20,label:'20 min'}]}];
+  return[null,{name:'Vo2max intervals',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'yellow',dist:1,label:'Z3'},{zone:'red',dist:.5,label:'Z4'},{zone:'yellow',dist:1,label:'Z3'},{zone:'red',dist:.5,label:'Z4'},{zone:'blue',dist:.5,label:'Cool'}]},{name:'Recuperação',emoji:'🚶',segs:[{zone:'blue',dur:30,label:'30 min'}]},{name:'Tempo run 5km',emoji:'🏃',segs:[{zone:'blue',dist:.5,label:'Aquec.'},{zone:'yellow',dist:4,label:'4km limiar'},{zone:'blue',dist:.5,label:'Cool'}]},null,{name:'Long run 10km',emoji:'🏃',segs:[{zone:'blue',dist:1,label:'1km'},{zone:'green',dist:7,label:'7km'},{zone:'yellow',dist:1,label:'1km'},{zone:'blue',dist:1,label:'1km'}]},{name:'Regenerativo',emoji:'🚶',segs:[{zone:'blue',dur:20,label:'20 min'}]}];
+}
+
+function getWeekDates(offset){
+  const now=new Date(),day=now.getDay(),mon=new Date(now);
+  mon.setDate(now.getDate()-day+(offset*7));
+  return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});
+}
+function dateKey(d){return d.toISOString().split('T')[0];}
+function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
+function isPast(d){return d<new Date(new Date().setHours(0,0,0,0));}
+function planWeek(dir){_planWeekOffset+=dir;renderPlan();}
+
+function renderPlan(){
+  if(!S.user){document.getElementById('plan-noeval').style.display='block';document.getElementById('plan-calendar').style.display='none';return;}
+  document.getElementById('plan-noeval').style.display='none';
+  document.getElementById('plan-calendar').style.display='block';
+  const dates=getWeekDates(_planWeekOffset);
+  renderGoals(dates);
+  const tmpl=getPlanTemplate(S.user.score);
+  const fmt=d=>`${d.getDate()}/${d.getMonth()+1}`;
+  document.getElementById('plan-week-label').textContent=_planWeekOffset===0?'Esta semana':_planWeekOffset===-1?'Semana passada':_planWeekOffset===1?'Próxima semana':`Semana de ${fmt(dates[0])}`;
+  document.getElementById('plan-week-range').textContent=`${fmt(dates[0])} a ${fmt(dates[6])}`;
+  let done=0,planned=0;
+  tmpl.forEach((t,i)=>{if(!t)return;planned++;const key=dateKey(dates[i]);if(S.plan&&S.plan[key]&&S.plan[key].done)done++;});
+  document.getElementById('plan-done').textContent=done;
+  document.getElementById('plan-total').textContent=planned;
+  document.getElementById('plan-pct').textContent=planned?Math.round(done/planned*100)+'%':'—';
+  document.getElementById('plan-calendar').innerHTML=dates.map((date,i)=>{
+    const t=tmpl[i],key=dateKey(date),planData=S.plan&&S.plan[key],isDone=planData&&planData.done,isRest=!t,today=isToday(date),past=isPast(date)&&!today;
+    const border=today?'#3b9eff':isDone?'#00c853':'#2a3a55';
+    const bg=today?'rgba(59,158,255,.08)':isDone?'rgba(0,200,83,.06)':'#1e2a40';
+    const zones=t?[...new Set(t.segs.map(s=>s.zone))].map(z=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ZI[z].hex};margin-right:3px;"></span>`).join(''):'';
+    return`<div onclick="openPlanDay(${i})" style="display:flex;align-items:center;gap:12px;background:${bg};border:1px solid ${border};border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;">
+      <div style="text-align:center;min-width:42px;">
+        <div style="font-size:11px;color:${today?'#3b9eff':'#7a8fbb'};font-weight:700;">${DIAS[i]}</div>
+        <div style="font-size:20px;font-weight:900;color:${today?'#3b9eff':past?'#556080':'#e8f0fe'};">${date.getDate()}</div>
+      </div>
+      <div style="flex:1;">
+        ${isRest?`<div style="font-size:13px;color:#556080;font-weight:600;">😴 Descanso</div>`:`<div style="font-size:14px;font-weight:700;${past&&!isDone?'color:#556080':''}">${t.emoji} ${t.name}</div><div style="margin-top:4px;">${zones}</div><div style="font-size:11px;color:#7a8fbb;margin-top:2px;">${t.segs.map(s=>s.label).join(' → ')}</div>`}
+      </div>
+      <div style="font-size:20px;">${isDone?'✅':isRest?'':today?'▶':'○'}</div>
+    </div>`;
+  }).join('');
+}
+
+function openPlanDay(dayIdx){
+  if(!S.user)return;
+  const dates=getWeekDates(_planWeekOffset),tmpl=getPlanTemplate(S.user.score);
+  const date=dates[dayIdx],t=tmpl[dayIdx],key=dateKey(date);
+  const isDone=S.plan&&S.plan[key]&&S.plan[key].done;
+  const today=isToday(date),past=isPast(date)&&!today;
+  document.getElementById('pday-title').textContent=`${DIAS_FULL[dayIdx]}, ${date.getDate()}/${date.getMonth()+1}`;
+  if(!t){
+    document.getElementById('pday-content').innerHTML=`<div style="text-align:center;padding:20px;"><div style="font-size:44px;margin-bottom:10px;">😴</div><div style="font-size:16px;font-weight:700;">Dia de Descanso</div><div style="font-size:13px;color:#7a8fbb;margin-top:6px;">Recuperação é parte do treino. Hidrate-se e descanse bem.</div></div>`;
+    document.getElementById('pday-actions').innerHTML=`<button class="btn btn-s" onclick="document.getElementById('mod-plan-day').style.display='none'">Fechar</button>`;
+  } else {
+    const totDist=t.segs.filter(s=>s.dist).reduce((a,s)=>a+s.dist,0);
+    const totDur=t.segs.filter(s=>s.dur).reduce((a,s)=>a+s.dur,0);
+    document.getElementById('pday-content').innerHTML=`
+      <div style="background:#243050;border-radius:12px;padding:14px;margin-bottom:12px;">
+        <div style="font-size:16px;font-weight:800;margin-bottom:4px;">${t.emoji} ${t.name}</div>
+        <div style="font-size:12px;color:#7a8fbb;">${totDist>0?totDist.toFixed(1)+' km total':totDur+' min total'}${isDone?' · <span style="color:#00c853;">✅ Concluído</span>':''}</div>
+      </div>
+      ${t.segs.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:10px;background:#1e2a40;border-radius:8px;margin-bottom:6px;border-left:3px solid ${ZI[s.zone].hex};"><div><div style="font-size:13px;font-weight:700;color:${ZI[s.zone].hex};">${ZI[s.zone].n} — ${s.label}</div><div style="font-size:11px;color:#7a8fbb;">${S.user.zones[s.zone].min}–${S.user.zones[s.zone].max} bpm</div></div></div>`).join('')}`;
+    let acts=``;
+    if(!isDone){acts+=`<button class="btn btn-b" style="margin-bottom:10px;" onclick="startPlanWorkout(${dayIdx})">▶ Iniciar agora</button>`;if(past||today)acts+=`<button class="btn btn-s" style="margin-bottom:10px;" onclick="markPlanDone('${key}')">✅ Marcar como feito</button>`;}
+    else acts+=`<button class="btn btn-s" style="margin-bottom:10px;" onclick="unmarkPlanDone('${key}')">↩ Desmarcar</button>`;
+    acts+=`<button class="btn btn-s" onclick="document.getElementById('mod-plan-day').style.display='none'">Fechar</button>`;
+    document.getElementById('pday-actions').innerHTML=acts;
+  }
+  document.getElementById('mod-plan-day').style.display='block';
+}
+
+function markPlanDone(key){if(!S.plan)S.plan={};S.plan[key]={done:true};save();document.getElementById('mod-plan-day').style.display='none';renderPlan();toast('Marcado como concluído!');}
+function unmarkPlanDone(key){if(S.plan&&S.plan[key])delete S.plan[key];save();document.getElementById('mod-plan-day').style.display='none';renderPlan();}
+
+function startPlanWorkout(dayIdx){
+  if(!S.user)return;
+  const tmpl=getPlanTemplate(S.user.score),t=tmpl[dayIdx];
+  if(!t)return;
+  S.segs=t.segs.map((s,i)=>{const z=S.user.zones[s.zone];return{id:i,zone:s.zone,label:s.label,mode:s.dist?'dist':'time',dist:s.dist||0,dur:s.dur||0,fcMin:z.min,fcMax:z.max};});
+  document.getElementById('mod-plan-day').style.display='none';
+  goTo('treino');renderSegs();
+  setTimeout(()=>{document.getElementById('tr-ready').style.display='block';document.getElementById('tr-sum').textContent='✅ Treino do plano carregado!';toast('Treino carregado — toque em Iniciar!');},300);
+}
+
 // ── PERFIL ──
 function renderPerfil(){
   if(!S.user){document.getElementById('pf-empty').style.display='block';document.getElementById('pf-data').style.display='none';return;}
@@ -1578,6 +2065,7 @@ load();
 loadVoice();
 renderHome();
 renderSegs();
+updateOpenAIUI();
 
 // Banner de permissões
 if(navigator.geolocation)document.getElementById('btn-gps').style.display='block';
