@@ -1538,7 +1538,14 @@ function finishTreino(){
     // Preenche modal resultado
     document.getElementById('res-sc').textContent=sc;
     document.getElementById('res-arc').style.strokeDashoffset=364-(364*sc/100);
-    document.getElementById('res-lb').textContent=sc>=80?'🏆 Excelente execução!':sc>=60?'✅ Bom treino!':'💪 Continue evoluindo!';
+    document.getElementById('res-lb').textContent=
+      sc===0?'Sem execução registrada':
+      sc<=20?'Muito abaixo do planejado':
+      sc<=40?'Abaixo do esperado':
+      sc<=59?'Treino mediano':
+      sc<=74?'Bom treino!':
+      sc<=89?'Treino muito bem executado!':
+      '🏆 Execução excepcional!';
     document.getElementById('res-dist').textContent=S.pend.dist;
     document.getElementById('res-dur').textContent=S.pend.dur;
     document.getElementById('res-pace').textContent=pace;
@@ -1562,11 +1569,9 @@ function finishTreino(){
     }).join('');
 
     setTimeout(()=>initMapResult(S.gps.route, S.gps.zoneRoute),300);
-    say(pick([
-      `Treino encerrado, ${n()}! ${sc} pontos. Excelente trabalho!`,
-      `Muito bem, ${n()}! ${sc} pontos hoje.`,
-      `${n()}, terminou! ${sc} pontos. Recupera e hidrata!`
-    ]));
+    // Mensagem final baseada na pontuação — honesta e estimulante
+    const finalMsg = getFinalMsg(sc, n());
+    say(finalMsg);
 
     document.getElementById('mod-res').style.display='block';
 
@@ -1847,7 +1852,50 @@ function exportPDF(){
   win.document.close();
 }
 
-// ── METAS E CALORIAS ──
+function getFinalMsg(sc, nome){
+  // 0 — não executou nada ou interrompeu muito cedo
+  if(sc===0) return pick([
+    `${nome}, hoje não foi. Zero pontos. Mas você saiu e isso já conta. Na próxima, tente seguir pelo menos a primeira fase.`,
+    `Pontuação zero desta vez, ${nome}. Acontece. O importante é entender o que impediu e tentar diferente amanhã.`,
+    `${nome}, zero pontos hoje. Seja honesto com você mesmo — o que atrapalhou? Descanse, planeje e volte mais forte.`,
+  ]);
+  // 1–20 — muito abaixo do planejado
+  if(sc<=20) return pick([
+    `${nome}, ${sc} pontos. Ficou bem abaixo do planejado hoje. Não desanima — um treino ruim não apaga o progresso que você já tem. Volta amanhã.`,
+    `${sc} pontos, ${nome}. Foi difícil hoje, eu sei. Mas você terminou, e isso já é mais que quem ficou no sofá. Hidrata e descansa.`,
+    `${nome}, foram ${sc} pontos. O corpo nem sempre coopera. Revê o treino, ajusta a intensidade e tenta de novo. Você consegue.`,
+  ]);
+  // 21–40 — abaixo do esperado mas houve esforço
+  if(sc<=40) return pick([
+    `${nome}, ${sc} pontos. Não foi o seu melhor dia, mas teve esforço. Foco nas zonas de FC no próximo treino — elas fazem toda a diferença na pontuação.`,
+    `${sc} pontos, ${nome}. Você se moveu, e isso importa. Tente ficar mais tempo dentro da zona alvo no próximo. Pequenos ajustes, grandes resultados.`,
+    `${nome}, ${sc} pontos hoje. Ainda dá pra melhorar bastante — e você sabe disso. A consistência é o que transforma o corpo. Não para.`,
+  ]);
+  // 41–59 — mediano, na zona certa parte do tempo
+  if(sc<=59) return pick([
+    `${nome}, ${sc} pontos. Treino mediano — você ficou parte do tempo na zona certa. Com mais foco nas fases, dá pra chegar nos 70 facilmente. Bom trabalho.`,
+    `${sc} pontos, ${nome}. Metade do caminho feito. O seu corpo tá respondendo — agora é afinar a intensidade em cada fase. Continua!`,
+    `${nome}, ${sc} pontos. Treino razoável. Você tá progredindo, mesmo que lentamente. Cada saída conta. Descansa bem hoje.`,
+  ]);
+  // 60–74 — bom, seguiu boa parte do plano
+  if(sc<=74) return pick([
+    `${nome}, ${sc} pontos! Bom treino. Você seguiu bem as zonas e o esforço foi consistente. Mais um assim e você vai sentir a evolução no corpo.`,
+    `${sc} pontos, ${nome}! Tá no caminho certo. As zonas foram bem executadas na maior parte. Continua com essa disciplina.`,
+    `Boa sessão, ${nome}! ${sc} pontos. Você tá construindo uma base sólida. Recupera bem e mantém a frequência.`,
+  ]);
+  // 75–89 — muito bom
+  if(sc<=89) return pick([
+    `${nome}, ${sc} pontos! Treino muito bem executado. Você respeitou as zonas e manteve o ritmo. Isso é treino de qualidade — parabéns!`,
+    `Excelente, ${nome}! ${sc} pontos. Quase perfeito. Você dominou as fases e seu corpo respondeu muito bem hoje.`,
+    `${sc} pontos, ${nome}! Muito bem! Você provou hoje que disciplina de treino faz diferença. Esse é o caminho para evoluir de verdade.`,
+  ]);
+  // 90–100 — execução excepcional
+  return pick([
+    `${nome}, ${sc} pontos! Execução excepcional! Você ficou exatamente nas zonas planejadas durante quase todo o treino. Isso é profissionalismo!`,
+    `PERFEITO, ${nome}! ${sc} pontos! Treino impecável — cada fase executada com precisão. Você treinou hoje como um atleta. Orgulha de você!`,
+    `${sc} pontos, ${nome}! Isso é um treino de elite! As zonas foram respeitadas do início ao fim. Descansa com orgulho — você merece!`,
+  ]);
+}
 
 // Cálculo de calorias pelo método MET (Metabolic Equivalent of Task)
 // MET por zona: Azul=6, Verde=8, Amarelo=10, Vermelho=12
