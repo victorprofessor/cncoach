@@ -1502,10 +1502,14 @@ function finishTreino(){
       });
     }
     const segsFeitos=S.segFcLog?S.segFcLog.filter(l=>l.fc.length>0).length:0;
-    const totalSegs=S.segs.length||1;
-    const comp=totalSegs>0&&segsFeitos>0?segsFeitos/totalSegs:1;
+    const totalSegs=S.segs.length||0;
+    const comp=totalSegs>0&&segsFeitos>0?segsFeitos/totalSegs:0;
     const base=wt>0?Math.round(tot/wt):0;
-    const sc=S.livre?Math.min(70,Math.round(base*0.7)):Math.round(base*comp);
+    // Treino livre: sem segmentos definidos, pontuação não é aplicável — usa 50 como neutro
+    // Treino intervalado: base × fator de conclusão
+    const sc=S.livre?(S.sec>60?50:0):Math.round(base*comp);
+
+    console.log('Score final:',sc,'base:',base,'comp:',comp,'segsFeitos:',segsFeitos,'totalSegs:',totalSegs);
 
     const m=Math.floor(S.sec/60),s=S.sec%60;
     let pace='—';
@@ -1539,13 +1543,10 @@ function finishTreino(){
     document.getElementById('res-sc').textContent=sc;
     document.getElementById('res-arc').style.strokeDashoffset=364-(364*sc/100);
     document.getElementById('res-lb').textContent=
-      sc===0?'Sem execução registrada':
-      sc<=20?'Muito abaixo do planejado':
-      sc<=40?'Abaixo do esperado':
-      sc<=59?'Treino mediano':
-      sc<=74?'Bom treino!':
-      sc<=89?'Treino muito bem executado!':
-      '🏆 Execução excepcional!';
+      sc===0?'Sem execução nas zonas':
+      sc<=50?'⚠ Abaixo do esperado — continue tentando':
+      sc<=80?'✅ Muito bem! Ainda dá pra melhorar':
+      '🏆 Execução excelente — parabéns!';
     document.getElementById('res-dist').textContent=S.pend.dist;
     document.getElementById('res-dur').textContent=S.pend.dur;
     document.getElementById('res-pace').textContent=pace;
@@ -1853,47 +1854,32 @@ function exportPDF(){
 }
 
 function getFinalMsg(sc, nome){
-  // 0 — não executou nada ou interrompeu muito cedo
-  if(sc===0) return pick([
-    `${nome}, hoje não foi. Zero pontos. Mas você saiu e isso já conta. Na próxima, tente seguir pelo menos a primeira fase.`,
-    `Pontuação zero desta vez, ${nome}. Acontece. O importante é entender o que impediu e tentar diferente amanhã.`,
-    `${nome}, zero pontos hoje. Seja honesto com você mesmo — o que atrapalhou? Descanse, planeje e volte mais forte.`,
+  // 0 ou negativo — não executou nada / sem segmentos
+  if(sc<=0) return pick([
+    `${nome}, zero pontos hoje. Você saiu, e isso já é o primeiro passo. Mas precisa seguir as zonas do treino para evoluir. Na próxima, foca na primeira fase e vai do início.`,
+    `${nome}, hoje foi zero. Não desanima, mas precisa ser honesto: sem seguir as faixas de FC, o treino não gera adaptação. Volta amanhã com mais foco.`,
+    `Zero pontos, ${nome}. O corpo precisa de estímulo dentro das zonas certas. Revê o plano, entende as fases e tenta de novo. Você tem potencial.`,
   ]);
-  // 1–20 — muito abaixo do planejado
-  if(sc<=20) return pick([
-    `${nome}, ${sc} pontos. Ficou bem abaixo do planejado hoje. Não desanima — um treino ruim não apaga o progresso que você já tem. Volta amanhã.`,
-    `${sc} pontos, ${nome}. Foi difícil hoje, eu sei. Mas você terminou, e isso já é mais que quem ficou no sofá. Hidrata e descansa.`,
-    `${nome}, foram ${sc} pontos. O corpo nem sempre coopera. Revê o treino, ajusta a intensidade e tenta de novo. Você consegue.`,
+  // 1–50 — abaixo do esperado, motiva mas é honesto
+  if(sc<=50) return pick([
+    `${nome}, ${sc} pontos. Não está bom ainda, mas você saiu e isso importa. O problema foi a FC fora das zonas planejadas. Foca nisso no próximo treino e você já vai ver diferença.`,
+    `${sc} pontos, ${nome}. Abaixo do que você pode. Não precisa ser perfeito, mas precisa respeitar as zonas — elas existem por um motivo. Continue saindo, mas com mais atenção à intensidade.`,
+    `${nome}, ${sc} pontos. Treino abaixo do esperado. Seja com você: o corpo precisa trabalhar nas zonas certas pra evoluir. Descansa, relê o plano e volta mais comprometido.`,
+    `Foram ${sc} pontos, ${nome}. Dá pra melhorar muito. O que faltou foi manter a FC dentro do alvo. Com um pouco mais de foco nas fases, você já ultrapassa os 60 na próxima.`,
   ]);
-  // 21–40 — abaixo do esperado mas houve esforço
-  if(sc<=40) return pick([
-    `${nome}, ${sc} pontos. Não foi o seu melhor dia, mas teve esforço. Foco nas zonas de FC no próximo treino — elas fazem toda a diferença na pontuação.`,
-    `${sc} pontos, ${nome}. Você se moveu, e isso importa. Tente ficar mais tempo dentro da zona alvo no próximo. Pequenos ajustes, grandes resultados.`,
-    `${nome}, ${sc} pontos hoje. Ainda dá pra melhorar bastante — e você sabe disso. A consistência é o que transforma o corpo. Não para.`,
+  // 51–80 — muito bem mas pode melhorar
+  if(sc<=80) return pick([
+    `${nome}, ${sc} pontos! Muito bem! Você seguiu boa parte do plano e as zonas foram respeitadas. Ainda tem espaço pra melhorar — mais consistência nas fases vai te levar acima dos 80.`,
+    `${sc} pontos, ${nome}! Tá indo muito bem. A execução foi sólida, mas tem momentos que a FC saiu do alvo. Foca nesses detalhes e o resultado vai aparecer.`,
+    `Boa execução, ${nome}! ${sc} pontos. Você está no caminho certo. Com um pouco mais de disciplina nas transições entre zonas, você chega nos 90. Continue!`,
+    `${nome}, ${sc} pontos! Muito bom treino. O esforço foi real e as zonas foram bem seguidas na maior parte. Melhora os momentos fora do alvo e vai subir mais.`,
   ]);
-  // 41–59 — mediano, na zona certa parte do tempo
-  if(sc<=59) return pick([
-    `${nome}, ${sc} pontos. Treino mediano — você ficou parte do tempo na zona certa. Com mais foco nas fases, dá pra chegar nos 70 facilmente. Bom trabalho.`,
-    `${sc} pontos, ${nome}. Metade do caminho feito. O seu corpo tá respondendo — agora é afinar a intensidade em cada fase. Continua!`,
-    `${nome}, ${sc} pontos. Treino razoável. Você tá progredindo, mesmo que lentamente. Cada saída conta. Descansa bem hoje.`,
-  ]);
-  // 60–74 — bom, seguiu boa parte do plano
-  if(sc<=74) return pick([
-    `${nome}, ${sc} pontos! Bom treino. Você seguiu bem as zonas e o esforço foi consistente. Mais um assim e você vai sentir a evolução no corpo.`,
-    `${sc} pontos, ${nome}! Tá no caminho certo. As zonas foram bem executadas na maior parte. Continua com essa disciplina.`,
-    `Boa sessão, ${nome}! ${sc} pontos. Você tá construindo uma base sólida. Recupera bem e mantém a frequência.`,
-  ]);
-  // 75–89 — muito bom
-  if(sc<=89) return pick([
-    `${nome}, ${sc} pontos! Treino muito bem executado. Você respeitou as zonas e manteve o ritmo. Isso é treino de qualidade — parabéns!`,
-    `Excelente, ${nome}! ${sc} pontos. Quase perfeito. Você dominou as fases e seu corpo respondeu muito bem hoje.`,
-    `${sc} pontos, ${nome}! Muito bem! Você provou hoje que disciplina de treino faz diferença. Esse é o caminho para evoluir de verdade.`,
-  ]);
-  // 90–100 — execução excepcional
+  // 81–100 — manter e parabenizar
   return pick([
-    `${nome}, ${sc} pontos! Execução excepcional! Você ficou exatamente nas zonas planejadas durante quase todo o treino. Isso é profissionalismo!`,
-    `PERFEITO, ${nome}! ${sc} pontos! Treino impecável — cada fase executada com precisão. Você treinou hoje como um atleta. Orgulha de você!`,
-    `${sc} pontos, ${nome}! Isso é um treino de elite! As zonas foram respeitadas do início ao fim. Descansa com orgulho — você merece!`,
+    `${nome}, ${sc} pontos! Execução excelente! Você ficou nas zonas certas, respeitou o plano e entregou um treino completo. É assim que se evolui. Parabéns!`,
+    `${sc} pontos, ${nome}! Isso é treino de qualidade! Cada fase foi executada com precisão. Mantém essa disciplina e seu corpo vai responder muito bem. Orgulha de você!`,
+    `PARABÉNS, ${nome}! ${sc} pontos! Treino impecável. Você provou que entende o método — zonas respeitadas, ritmo controlado, resultado perfeito. Descansa com orgulho!`,
+    `${nome}, ${sc} pontos! Que treino! A consistência nas zonas foi impressionante. Isso é o que separa quem evolui de quem estagna. Mantém esse nível!`,
   ]);
 }
 
