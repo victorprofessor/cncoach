@@ -152,6 +152,37 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <button id="btn-voice" class="btn btn-s" style="font-size:13px;padding:12px;" onclick="activateVoice()">🔊 Ativar coach de voz</button>
   </div>
 
+  <!-- Card Google TTS -->
+  <div class="card" style="margin-bottom:14px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <div style="font-size:13px;font-weight:700;">🎙️ Voz Neural — Google Cloud</div>
+      <div id="gtts-dot" style="width:8px;height:8px;border-radius:50%;background:#3d5070;"></div>
+    </div>
+    <div id="gtts-inactive">
+      <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Voz humana WaveNet em português. Cole a chave de API do Google Cloud (Text-to-Speech).</div>
+      <input class="inp" type="password" id="gtts-key-input" placeholder="AIza..." autocomplete="off" style="margin-bottom:8px;">
+      <button class="btn btn-b" style="font-size:14px;padding:12px;margin-bottom:0;" onclick="saveGttsKey()">Ativar voz neural</button>
+    </div>
+    <div id="gtts-active" style="display:none;">
+      <div style="font-size:13px;color:#00c853;font-weight:700;margin-bottom:10px;">✅ Voz Google ativa</div>
+      <div style="font-size:12px;color:#7a8fbb;margin-bottom:6px;">Escolha a voz:</div>
+      <select class="inp" id="gtts-voice-sel" onchange="setGttsVoice(this.value)" style="margin-bottom:10px;">
+        <optgroup label="Femininas">
+          <option value="pt-BR-Wavenet-A">Wavenet A — Feminina (padrão)</option>
+          <option value="pt-BR-Wavenet-C">Wavenet C — Feminina</option>
+          <option value="pt-BR-Neural2-A">Neural2 A — Feminina (premium)</option>
+          <option value="pt-BR-Neural2-C">Neural2 C — Feminina (premium)</option>
+        </optgroup>
+        <optgroup label="Masculinas">
+          <option value="pt-BR-Wavenet-B">Wavenet B — Masculina</option>
+          <option value="pt-BR-Neural2-B">Neural2 B — Masculina (premium)</option>
+        </optgroup>
+      </select>
+      <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:8px;" onclick="testGttsVoice()">▶ Testar voz</button>
+      <button class="btn btn-s" style="font-size:12px;padding:8px;margin-bottom:0;" onclick="removeGttsKey()">Remover chave</button>
+    </div>
+  </div>
+
   <div id="home-noeval" class="card" style="text-align:center;padding:28px 16px;">
     <div style="font-size:44px;margin-bottom:10px;">🏃</div>
     <div style="font-size:17px;font-weight:700;margin-bottom:8px;">Bem-vindo ao CnCoach</div>
@@ -414,7 +445,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
     <!-- Zonas -->
     <div class="card" style="margin-bottom:10px;">
-      <div class="ct">Tempo por zona</div>
+      <div class="ct">Análise do Treino</div>
       <div id="det-zones"></div>
     </div>
 
@@ -646,7 +677,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div class="stat"><div class="sv cr" id="res-fcmax">—</div><div class="sl">FC máxima</div></div>
     </div>
     <div class="stat" style="margin-bottom:12px;"><div class="sv" style="color:#ff9800;" id="res-kcal">— kcal</div><div class="sl">🔥 Calorias estimadas</div></div>
-    <div class="card" style="margin-top:4px;"><div class="ct">Tempo por zona</div><div id="res-zchart"></div></div>
+    <div class="card" style="margin-top:4px;"><div class="ct">FC Média por Fase</div><div id="res-zchart"></div></div>
     <div class="map-wrap" id="res-map-wrap">
       <div id="map-result"></div>
       <div class="map-badge">Rota do treino</div>
@@ -670,7 +701,8 @@ function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.mi
 // ── STORAGE ──
 function load(){
   try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.goals=d.g||{distMeta:0,trMeta:0,peso:70};}catch(e){}
-  try{const k=localStorage.getItem('cnc_oai');if(k){_openaiKey=k;_unlocked=true;}}catch(e){}
+  try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
+  try{const v=localStorage.getItem('cnc_gtts_voice');if(v)_gttsVoice=v;}catch(e){}
 }
 function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},g:S.goals||{}}));}catch(e){}}
 function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist}));}catch(e){}}
@@ -680,10 +712,12 @@ let _tto;
 function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(_tto);_tto=setTimeout(()=>t.classList.remove('show'),4000);}
 
 // ── VOICE (Web Speech API) ──
-// ── VOICE ENGINE — OpenAI TTS + fallback Web Speech ──
-let _voice=null,_unlocked=false,_openaiKey='',_audioCtx=null;
+// ── VOICE ENGINE — Google Cloud TTS + fallback Web Speech ──
+let _voice=null,_unlocked=false,_gttsKey='';
 const _ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
 let _speakQueue=[],_speaking=false;
+let _gttsVoice='pt-BR-Wavenet-A'; // feminina WaveNet
+let _audioEl=null; // elemento de áudio reutilizável (importante para iOS)
 
 function loadVoice(){
   if(!('speechSynthesis' in window))return;
@@ -691,30 +725,52 @@ function loadVoice(){
   pick();speechSynthesis.onvoiceschanged=pick;
 }
 
-// OpenAI TTS — voz nova (feminina, natural em PT-BR)
-async function speakOpenAI(msg){
+// Google Cloud TTS — WaveNet PT-BR (voz humana natural)
+async function speakGoogle(msg){
   try{
-    const res=await fetch('https://api.openai.com/v1/audio/speech',{
+    const clean=msg.replace(/[\u{1F300}-\u{1FAFF}]/gu,'').replace(/[📍✅⏹🔴🟡🟢🔵🏆💪📋⌚🔥🏃🚶😴⚪🔽🔼⚠]/g,'').trim();
+    if(!clean){_speaking=false;drainQueue();return;}
+
+    const res=await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key='+_gttsKey,{
       method:'POST',
-      headers:{'Authorization':'Bearer '+_openaiKey,'Content-Type':'application/json'},
+      headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'tts-1',        // tts-1-hd para maior qualidade (mais lento)
-        input:msg,
-        voice:'nova',         // nova = feminina, calorosa, natural em PT-BR
-        speed:0.95,           // levemente mais devagar — soa mais humano
-        response_format:'mp3'
+        input:{text:clean},
+        voice:{languageCode:'pt-BR',name:_gttsVoice},
+        audioConfig:{
+          audioEncoding:'MP3',
+          speakingRate:1.0,
+          pitch:0.0,
+          volumeGainDb:2.0
+        }
       })
     });
-    if(!res.ok){console.warn('OpenAI TTS erro:',res.status);speakBrowser(msg);return;}
-    const blob=await res.blob();
-    const url=URL.createObjectURL(blob);
-    const audio=new Audio(url);
-    audio.onended=()=>{URL.revokeObjectURL(url);_speaking=false;drainQueue();};
-    audio.onerror=()=>{_speaking=false;drainQueue();speakBrowser(msg);};
+
+    if(!res.ok){
+      // Mostra o erro exato para diagnóstico
+      let errMsg='';
+      try{const errData=await res.json();errMsg=errData.error?errData.error.message:'';}catch(e){}
+      console.error('Google TTS erro '+res.status+':',errMsg);
+      toast('⚠ Voz Google falhou ('+res.status+'): '+errMsg.slice(0,60));
+      speakBrowser(msg);
+      return;
+    }
+    const data=await res.json();
+    if(!data.audioContent){
+      toast('⚠ Google TTS sem áudio');
+      speakBrowser(msg);
+      return;
+    }
+
+    if(!_audioEl){_audioEl=new Audio();}
+    _audioEl.src='data:audio/mp3;base64,'+data.audioContent;
+    _audioEl.onended=()=>{_speaking=false;drainQueue();};
+    _audioEl.onerror=()=>{console.error('Erro ao tocar áudio Google');_speaking=false;drainQueue();};
     _speaking=true;
-    await audio.play();
+    await _audioEl.play();
   }catch(e){
-    console.warn('OpenAI TTS falhou:',e);
+    console.error('Google TTS exceção:',e);
+    toast('⚠ Erro: '+String(e.message||e).slice(0,60));
     speakBrowser(msg);
   }
 }
@@ -741,14 +797,13 @@ function drainQueue(){
 }
 
 function doSpeak(msg){
-  if(_openaiKey) speakOpenAI(msg);
+  if(_gttsKey) speakGoogle(msg);
   else speakBrowser(msg);
 }
 
 function say(msg){
   toast(msg);
-  if(!_unlocked&&!_openaiKey)return;
-  // Durante treino ativo: descarta fila acumulada, só mantém última
+  if(!_unlocked&&!_gttsKey)return;
   if(_speakQueue.length>1)_speakQueue=[_speakQueue[_speakQueue.length-1]];
   if(_speaking){_speakQueue.push(msg);return;}
   doSpeak(msg);
@@ -758,6 +813,10 @@ function activateVoice(){
   document.getElementById('btn-voice').style.display='none';
   checkBanner();
   _unlocked=true;
+  // Destrava áudio no iOS — cria e toca elemento silencioso dentro do gesto
+  if(!_audioEl)_audioEl=new Audio();
+  _audioEl.src='data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA';
+  _audioEl.play().catch(()=>{});
   if('speechSynthesis' in window){
     speechSynthesis.cancel();
     const u=new SpeechSynthesisUtterance('.');
@@ -766,11 +825,56 @@ function activateVoice(){
     speechSynthesis.speak(u);
   }
   loadVoice();
-  setTimeout(()=>say('Coach de voz ativado!'),500);
+  setTimeout(()=>say('Coach de voz ativado! Estou pronta para te guiar.'),500);
 }
 
-// UI chave OpenAI — removido
-function updateOpenAIUI(){}
+// ── UI Google TTS ──
+function updateGttsUI(){
+  const active=!!_gttsKey;
+  const dot=document.getElementById('gtts-dot');
+  const inact=document.getElementById('gtts-inactive');
+  const act=document.getElementById('gtts-active');
+  if(dot)dot.style.background=active?'#00c853':'#3d5070';
+  if(inact)inact.style.display=active?'none':'block';
+  if(act)act.style.display=active?'block':'none';
+}
+
+function saveGttsKey(){
+  const k=document.getElementById('gtts-key-input').value.trim();
+  if(!k||!k.startsWith('AIza')){toast('Chave inválida — deve começar com AIza');return;}
+  _gttsKey=k;_unlocked=true;
+  try{localStorage.setItem('cnc_gtts',k);}catch(e){}
+  document.getElementById('gtts-key-input').value='';
+  updateGttsUI();
+  toast('Testando voz Google...');
+  // Destrava áudio no gesto
+  if(!_audioEl)_audioEl=new Audio();
+  _audioEl.play().catch(()=>{});
+  setTimeout(()=>say('Olá! Voz neural do Google ativada. Estou pronta para te guiar nos treinos!'),300);
+}
+
+function removeGttsKey(){
+  _gttsKey='';
+  try{localStorage.removeItem('cnc_gtts');}catch(e){}
+  updateGttsUI();
+  toast('Chave removida. Usando voz do sistema.');
+}
+
+function setGttsVoice(v){
+  _gttsVoice=v;
+  try{localStorage.setItem('cnc_gtts_voice',v);}catch(e){}
+}
+
+function testGttsVoice(){
+  say(pick([
+    'Oi! Sou sua treinadora. Vamos correr juntos hoje?',
+    'Bora treinar! Estou aqui pra te motivar do início ao fim.',
+    'Preparado? Hoje é dia de superar seus limites!'
+  ]));
+}
+
+// Compat
+function updateOpenAIUI(){updateGttsUI();}
 
 // ── GPS ──
 function activateGPS(){
@@ -1530,11 +1634,18 @@ function finishTreino(){
     const peso=(S.goals&&S.goals.peso)||70;
     const kcal=calcKcal(zt,peso);
 
+    // Dados por fase para o histórico
+    const fases=S.segs.length&&S.segFcLog?S.segs.map((seg,i)=>{
+      const log=S.segFcLog[i];
+      const avg=log&&log.fc.length?Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length):null;
+      return{label:seg.label||`Fase ${i+1}`,zone:seg.zone,fcMin:seg.fcMin,fcMax:seg.fcMax,avg};
+    }):[];
+
     S.pend={
       date:new Date().toLocaleDateString('pt-BR'),
       dur:pad(m)+':'+pad(s),
       dist:S.gps.dist.toFixed(2)+' km',
-      pace,fcMax:S.fcMax,score:sc,zt,kcal,
+      pace,fcMax:S.fcMax,score:sc,zt,kcal,fases,
       route:[...S.gps.route],
       zoneRoute:[...(S.gps.zoneRoute||[])]
     };
@@ -1553,21 +1664,55 @@ function finishTreino(){
     document.getElementById('res-fcmax').textContent=S.fcMax?S.fcMax+' bpm':'—';
     document.getElementById('res-kcal').textContent=kcal>0?kcal+' kcal':'— kcal';
 
-    // Gráfico de zonas — mostra mesmo se zerado
-    const totZT=Object.values(zt).reduce((a,v)=>a+v,0)||1;
-    document.getElementById('res-zchart').innerHTML=['blue','green','yellow','red'].map(z=>{
-      const pct=Math.round(zt[z]/totZT*100);
-      const ts=zt[z],tm=Math.floor(ts/60),tss=ts%60;
-      return`<div style="margin-bottom:8px;">
-        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-          <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
-          <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(tss)} · ${pct}%</span>
-        </div>
-        <div style="height:8px;background:#1a2236;border-radius:4px;">
-          <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
-        </div>
-      </div>`;
-    }).join('');
+    // Gráfico: FC média por fase do treino
+    if(S.segs.length&&S.segFcLog){
+      document.getElementById('res-zchart').innerHTML=S.segs.map((seg,i)=>{
+        const log=S.segFcLog[i];
+        const executed=log&&log.fc.length>0;
+        const avg=executed?Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length):null;
+        const inZone=avg!==null&&avg>=seg.fcMin&&avg<=seg.fcMax;
+        const status=!executed?'⚪ Não executada':inZone?'✅ Na zona':avg<seg.fcMin?'🔽 Abaixo do alvo':'🔼 Acima do alvo';
+        const statusColor=!executed?'#556080':inZone?'#00c853':'#ffd600';
+        const segName=seg.label||`Fase ${i+1}`;
+        // Posição da FC média na barra (visual)
+        let markerPct=50;
+        if(avg!==null){
+          const range=seg.fcMax-seg.fcMin;
+          markerPct=Math.max(2,Math.min(98,((avg-seg.fcMin)/range)*100));
+        }
+        return`<div style="margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid #2a3a55;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <span style="font-size:13px;font-weight:700;color:${ZI[seg.zone].hex};">${segName}</span>
+            <span style="font-size:12px;font-weight:700;color:${statusColor};">${status}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:#7a8fbb;margin-bottom:6px;">
+            <span>Alvo: ${seg.fcMin}–${seg.fcMax} bpm</span>
+            <span>${avg!==null?'FC média: <b style="color:#e8f0fe;">'+avg+' bpm</b>':'—'}</span>
+          </div>
+          ${executed?`
+          <div style="position:relative;height:10px;background:#1a2236;border-radius:5px;">
+            <div style="position:absolute;left:0;top:0;height:100%;width:100%;background:linear-gradient(90deg,transparent 0%,${ZI[seg.zone].hex}33 20%,${ZI[seg.zone].hex}55 50%,${ZI[seg.zone].hex}33 80%,transparent 100%);border-radius:5px;"></div>
+            <div style="position:absolute;left:${markerPct}%;top:-3px;width:4px;height:16px;background:${inZone?'#00c853':'#ffd600'};border-radius:2px;transform:translateX(-50%);"></div>
+          </div>`:''}
+        </div>`;
+      }).join('');
+    } else {
+      // Treino livre — mostra tempo por zona como antes
+      const totZT=Object.values(zt).reduce((a,v)=>a+v,0)||1;
+      document.getElementById('res-zchart').innerHTML=['blue','green','yellow','red'].map(z=>{
+        const pct=Math.round(zt[z]/totZT*100);
+        const ts=zt[z],tm=Math.floor(ts/60),tss=ts%60;
+        return`<div style="margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
+            <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(tss)} · ${pct}%</span>
+          </div>
+          <div style="height:8px;background:#1a2236;border-radius:4px;">
+            <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
+          </div>
+        </div>`;
+      }).join('');
+    }
 
     setTimeout(()=>initMapResult(S.gps.route, S.gps.zoneRoute),300);
     // Mensagem final baseada na pontuação — honesta e estimulante
@@ -1740,21 +1885,48 @@ function openDetail(idx){
   document.getElementById('det-pace').textContent=h.pace;
   document.getElementById('det-fcmax').textContent=h.fcMax?h.fcMax+' bpm':'—';
 
-  // Zonas
-  const totZT=h.zt?Object.values(h.zt).reduce((a,v)=>a+v,0)||1:1;
-  document.getElementById('det-zones').innerHTML=h.zt?['blue','green','yellow','red'].map(z=>{
-    const pct=Math.round((h.zt[z]||0)/totZT*100);
-    const tm=Math.floor((h.zt[z]||0)/60),ts=(h.zt[z]||0)%60;
-    return`<div style="margin-bottom:8px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-        <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
-        <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(ts)} · ${pct}%</span>
-      </div>
-      <div style="height:7px;background:#1a2236;border-radius:4px;">
-        <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
-      </div>
-    </div>`;
-  }).join(''):'<div style="font-size:13px;color:#7a8fbb;">Sem dados de zona</div>';
+  // Análise: FC média por fase (se disponível) ou tempo por zona (treinos antigos/livres)
+  if(h.fases&&h.fases.length){
+    document.getElementById('det-zones').innerHTML=h.fases.map(f=>{
+      const executed=f.avg!==null&&f.avg!==undefined;
+      const inZone=executed&&f.avg>=f.fcMin&&f.avg<=f.fcMax;
+      const status=!executed?'⚪ Não executada':inZone?'✅ Na zona':f.avg<f.fcMin?'🔽 Abaixo':'🔼 Acima';
+      const statusColor=!executed?'#556080':inZone?'#00c853':'#ffd600';
+      let markerPct=50;
+      if(executed){const range=f.fcMax-f.fcMin;markerPct=Math.max(2,Math.min(98,((f.avg-f.fcMin)/range)*100));}
+      return`<div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid #2a3a55;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:13px;font-weight:700;color:${ZI[f.zone].hex};">${f.label}</span>
+          <span style="font-size:12px;font-weight:700;color:${statusColor};">${status}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#7a8fbb;margin-bottom:5px;">
+          <span>Alvo: ${f.fcMin}–${f.fcMax} bpm</span>
+          <span>${executed?'FC média: <b style="color:#e8f0fe;">'+f.avg+' bpm</b>':'—'}</span>
+        </div>
+        ${executed?`<div style="position:relative;height:8px;background:#1a2236;border-radius:4px;">
+          <div style="position:absolute;inset:0;background:linear-gradient(90deg,transparent,${ZI[f.zone].hex}44 50%,transparent);border-radius:4px;"></div>
+          <div style="position:absolute;left:${markerPct}%;top:-3px;width:4px;height:14px;background:${inZone?'#00c853':'#ffd600'};border-radius:2px;transform:translateX(-50%);"></div>
+        </div>`:''}
+      </div>`;
+    }).join('');
+  } else if(h.zt){
+    const totZT=Object.values(h.zt).reduce((a,v)=>a+v,0)||1;
+    document.getElementById('det-zones').innerHTML=['blue','green','yellow','red'].map(z=>{
+      const pct=Math.round((h.zt[z]||0)/totZT*100);
+      const tm=Math.floor((h.zt[z]||0)/60),ts=(h.zt[z]||0)%60;
+      return`<div style="margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:13px;font-weight:700;color:${ZI[z].hex};">${ZI[z].n}</span>
+          <span style="font-size:12px;color:#7a8fbb;">${tm}:${pad(ts)} · ${pct}%</span>
+        </div>
+        <div style="height:7px;background:#1a2236;border-radius:4px;">
+          <div style="height:100%;width:${pct}%;background:${ZI[z].hex};border-radius:4px;"></div>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    document.getElementById('det-zones').innerHTML='<div style="font-size:13px;color:#7a8fbb;">Sem dados de análise</div>';
+  }
 
   // Mapa da rota salva
   const mapWrap=document.getElementById('det-map-wrap');
@@ -2099,7 +2271,8 @@ load();
 loadVoice();
 renderHome();
 renderSegs();
-updateOpenAIUI();
+updateGttsUI();
+try{const sel=document.getElementById('gtts-voice-sel');if(sel)sel.value=_gttsVoice;}catch(e){}
 
 // Banner de permissões
 if(navigator.geolocation)document.getElementById('btn-gps').style.display='block';
