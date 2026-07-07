@@ -122,6 +122,10 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 .a-w{background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.3);color:#ffd600;}
 .a-ok{background:rgba(0,200,83,.1);border-color:rgba(0,200,83,.3);color:#00c853;}
 
+/* UTIL */
+.inp-grp{margin-bottom:14px;}
+.mt8{margin-top:8px;}
+
 /* ZONE LIST */
 .zrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #2a3a55;}
 .zdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;}
@@ -136,7 +140,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <div style="display:flex;align-items:center;gap:6px;">
       <div id="gps-dot" style="width:8px;height:8px;border-radius:50%;background:#3d5070;"></div>
       <span id="gps-lbl" style="font-size:11px;color:#7a8fbb;">GPS off</span>
-      <span style="margin-left:8px;font-size:22px;font-weight:900;color:#ff3d3d;" id="hdr-fc" style="display:none;"></span>
+      <span style="margin-left:8px;font-size:22px;font-weight:900;color:#ff3d3d;" id="hdr-fc"></span>
     </div>
   </div>
 </div>
@@ -306,9 +310,36 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     </div>
 
     <div id="ui-seg">
+      <!-- Aquecimento automático -->
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:700;">🔥 Aquecimento automático</div>
+          <div class="to" id="wu-toggle" style="flex:none;padding:6px 14px;" onclick="toggleWarmup()">Desligado</div>
+        </div>
+        <div id="wu-cfg" style="display:none;margin-top:10px;">
+          <label class="lbl">Duração (min) — sempre no início</label>
+          <input class="inp" type="number" id="wu-min" value="5" min="1" inputmode="numeric" oninput="setWarmupMin(this.value)" style="margin-bottom:0;">
+        </div>
+      </div>
+      <!-- Relaxamento automático -->
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div style="font-size:13px;font-weight:700;">🧘 Relaxamento automático</div>
+          <div class="to" id="cd-toggle" style="flex:none;padding:6px 14px;" onclick="toggleCooldown()">Desligado</div>
+        </div>
+        <div id="cd-cfg" style="display:none;margin-top:10px;">
+          <label class="lbl">Duração (min) — sempre no final</label>
+          <input class="inp" type="number" id="cd-min" value="5" min="1" inputmode="numeric" oninput="setCooldownMin(this.value)" style="margin-bottom:0;">
+        </div>
+      </div>
+
       <div style="font-size:14px;font-weight:700;margin-bottom:8px;">Segmentos</div>
       <div id="segs-list"><div style="text-align:center;padding:16px;color:#7a8fbb;font-size:13px;">Nenhum segmento</div></div>
       <button class="btn btn-s" onclick="openSegModal()">+ Adicionar segmento</button>
+      <div class="row2">
+        <button class="btn btn-s" style="font-size:13px;" onclick="openSaveTemplateModal()">💾 Salvar modelo</button>
+        <button class="btn btn-s" style="font-size:13px;" onclick="openTemplatesModal()">📂 Modelos salvos</button>
+      </div>
       <div id="tr-ready" style="display:none;">
         <div class="alert a-ok" id="tr-sum"></div>
         <button class="btn btn-g" onclick="startTreino()">▶ Iniciar Treino</button>
@@ -451,7 +482,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
     <!-- Mapa -->
     <div class="map-wrap" id="det-map-wrap" style="display:none;">
-      <div id="map-result" style="height:200px;border-radius:12px;"></div>
+      <div id="det-map-result" style="height:200px;border-radius:12px;"></div>
     </div>
 
     <!-- Comparativo com anterior -->
@@ -611,6 +642,29 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   </div>
 </div>
 
+<!-- MODAL SALVAR MODELO -->
+<div id="mod-tpl-save" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#131929;border-radius:24px 24px 0 0;padding:22px 18px 52px;border-top:1px solid #2a3a55;">
+    <div style="width:40px;height:4px;background:#2a3a55;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;text-align:center;">💾 Salvar Modelo de Treino</div>
+    <label class="lbl">Nome do modelo</label>
+    <input class="inp" type="text" id="tpl-name-input" placeholder="Ex: Intervalado 5x1km" style="margin-bottom:10px;">
+    <div style="font-size:12px;color:#7a8fbb;margin-bottom:18px;" id="tpl-save-sum">—</div>
+    <button class="btn btn-b" onclick="confirmSaveTemplate()">Salvar</button>
+    <button class="btn btn-s mt8" onclick="closeSaveTemplateModal()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL MODELOS SALVOS -->
+<div id="mod-tpl-list" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.85);">
+  <div style="position:absolute;bottom:0;left:0;right:0;background:#131929;border-radius:24px 24px 0 0;padding:22px 18px 52px;border-top:1px solid #2a3a55;max-height:80vh;overflow-y:auto;">
+    <div style="width:40px;height:4px;background:#2a3a55;border-radius:2px;margin:0 auto 16px;"></div>
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;text-align:center;">📂 Modelos Salvos</div>
+    <div id="tpl-list-content"></div>
+    <button class="btn btn-s mt8" onclick="closeTemplatesModal()">Fechar</button>
+  </div>
+</div>
+
 <!-- MODAL SEGMENTO -->
 <div id="mod-seg" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,.8);">
   <div style="position:absolute;bottom:0;left:0;right:0;background:#131929;border-radius:24px 24px 0 0;padding:20px 18px 48px;border-top:1px solid #2a3a55;max-height:92vh;overflow-y:auto;">
@@ -689,7 +743,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
 <script>
 // ── STATE ──
-const S={user:null,segs:[],hist:[],plan:{},goals:{distMeta:0,trMeta:0,peso:70},fc:70,gps:{on:false,lat:null,lng:null,route:[],dist:0,last:null},active:false,livre:false,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cSec:720,cIv:null,cOn:false,wId:null,segT:'dist',trMode:'seg'};
+const S={user:null,segs:[],hist:[],plan:{},goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],dist:0,last:null},active:false,livre:false,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cSec:720,cIv:null,cOn:false,wId:null,segT:'dist',trMode:'seg'};
 
 // ── ZONES ──
 const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#3b9eff',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
@@ -700,12 +754,11 @@ function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.mi
 
 // ── STORAGE ──
 function load(){
-  try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.goals=d.g||{distMeta:0,trMeta:0,peso:70};}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.goals=d.g||{distMeta:0,trMeta:0,peso:70};S.templates=d.t||[];S.wu=d.wu||{on:false,min:5};S.cd=d.cd||{on:false,min:5};}catch(e){}
   try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
   try{const v=localStorage.getItem('cnc_gtts_voice');if(v)_gttsVoice=v;}catch(e){}
 }
-function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},g:S.goals||{}}));}catch(e){}}
-function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist}));}catch(e){}}
+function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},g:S.goals||{},t:S.templates||[],wu:S.wu||{on:false,min:5},cd:S.cd||{on:false,min:5}}));}catch(e){}}
 
 // ── TOAST ──
 let _tto;
@@ -1025,13 +1078,14 @@ function updateMapLive(){
   }
 }
 
-function initMapResult(route, zoneRoute){
+function initMapResult(route, zoneRoute, containerId){
+  containerId = containerId || 'map-result';
   // Remove mapa anterior se existir
   if(_mapResult){ _mapResult.remove(); _mapResult=null; }
   if(!route||route.length<2) return;
 
   try{
-    _mapResult = L.map('map-result',{
+    _mapResult = L.map(containerId,{
       zoomControl:true,
       attributionControl:false,
       dragging:true,
@@ -1244,6 +1298,95 @@ function goToSugg(){
   document.getElementById('tr-sum').textContent='Treino do plano carregado!';
 }
 
+// ── AQUECIMENTO / RELAXAMENTO AUTOMÁTICOS ──
+function toggleWarmup(){S.wu.on=!S.wu.on;syncWuCdUI();save();}
+function setWarmupMin(v){S.wu.min=Math.max(1,parseInt(v)||5);save();renderSegs();}
+function toggleCooldown(){S.cd.on=!S.cd.on;syncWuCdUI();save();}
+function setCooldownMin(v){S.cd.min=Math.max(1,parseInt(v)||5);save();renderSegs();}
+function syncWuCdUI(){
+  const wuT=document.getElementById('wu-toggle'),cdT=document.getElementById('cd-toggle');
+  if(wuT){wuT.classList.toggle('on',S.wu.on);wuT.textContent=S.wu.on?'Ativado':'Desligado';}
+  if(cdT){cdT.classList.toggle('on',S.cd.on);cdT.textContent=S.cd.on?'Ativado':'Desligado';}
+  const wuCfg=document.getElementById('wu-cfg');if(wuCfg)wuCfg.style.display=S.wu.on?'block':'none';
+  const cdCfg=document.getElementById('cd-cfg');if(cdCfg)cdCfg.style.display=S.cd.on?'block':'none';
+  const wuMinInput=document.getElementById('wu-min');if(wuMinInput)wuMinInput.value=S.wu.min;
+  const cdMinInput=document.getElementById('cd-min');if(cdMinInput)cdMinInput.value=S.cd.min;
+  renderSegs();
+}
+function warmupZone(){return S.user&&S.user.zones?S.user.zones.blue:{min:100,max:130};}
+function buildWarmupSeg(){
+  const min=Math.max(1,parseInt(S.wu.min)||5),z=warmupZone();
+  return{id:'wu-'+Date.now(),zone:'blue',label:'Aquecimento '+min+' min',mode:'time',dist:0,dur:min,fcMin:z.min,fcMax:z.max,isWarmup:true};
+}
+function buildCooldownSeg(){
+  const min=Math.max(1,parseInt(S.cd.min)||5),z=warmupZone();
+  return{id:'cd-'+Date.now(),zone:'blue',label:'Relaxamento '+min+' min',mode:'time',dist:0,dur:min,fcMin:z.min,fcMax:z.max,isCooldown:true};
+}
+
+// ── MODELOS DE TREINO SALVOS ──
+function openSaveTemplateModal(){
+  if(!S.segs.length){toast('Adicione ao menos um segmento antes de salvar');return;}
+  document.getElementById('tpl-name-input').value='';
+  const td=S.segs.filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
+  const tt=S.segs.filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur,0);
+  let sum=S.segs.length+' segmento(s)';if(td>0)sum+=' · '+td.toFixed(1)+' km';if(tt>0)sum+=' · '+tt+' min';
+  if(S.wu.on)sum+=' · aquec. '+S.wu.min+'min';
+  if(S.cd.on)sum+=' · relax. '+S.cd.min+'min';
+  document.getElementById('tpl-save-sum').textContent=sum;
+  document.getElementById('mod-tpl-save').style.display='block';
+}
+function closeSaveTemplateModal(){document.getElementById('mod-tpl-save').style.display='none';}
+function confirmSaveTemplate(){
+  const name=document.getElementById('tpl-name-input').value.trim();
+  if(!name){alert('Dê um nome para o modelo');return;}
+  if(!S.templates)S.templates=[];
+  S.templates.unshift({
+    id:Date.now(),name,createdAt:new Date().toISOString(),
+    segs:JSON.parse(JSON.stringify(S.segs)),
+    wuOn:S.wu.on,wuMin:S.wu.min,cdOn:S.cd.on,cdMin:S.cd.min
+  });
+  save();
+  closeSaveTemplateModal();
+  toast('Modelo "'+name+'" salvo!');
+}
+function openTemplatesModal(){renderTemplatesList();document.getElementById('mod-tpl-list').style.display='block';}
+function closeTemplatesModal(){document.getElementById('mod-tpl-list').style.display='none';}
+function renderTemplatesList(){
+  const el=document.getElementById('tpl-list-content');
+  if(!S.templates||!S.templates.length){el.innerHTML='<div style="text-align:center;padding:20px;color:#7a8fbb;font-size:13px;">Nenhum modelo salvo ainda</div>';return;}
+  el.innerHTML=S.templates.map(t=>{
+    const td=t.segs.filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
+    const tt=t.segs.filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur,0);
+    let sum=t.segs.length+' segmento(s)';if(td>0)sum+=' · '+td.toFixed(1)+' km';if(tt>0)sum+=' · '+tt+' min';
+    if(t.wuOn)sum+=' · aquec. '+t.wuMin+'min';
+    if(t.cdOn)sum+=' · relax. '+t.cdMin+'min';
+    return`<div style="background:#1e2a40;border-radius:12px;padding:14px;margin-bottom:10px;border:1px solid #2a3a55;">
+      <div style="font-size:14px;font-weight:700;margin-bottom:4px;">${t.name}</div>
+      <div style="font-size:12px;color:#7a8fbb;margin-bottom:12px;">${sum}</div>
+      <div class="row2">
+        <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:0;" onclick="loadTemplate(${t.id})">▶ Usar</button>
+        <button class="btn btn-s" style="font-size:13px;padding:10px;margin-bottom:0;color:#ff3d3d;" onclick="deleteTemplate(${t.id})">🗑 Excluir</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function loadTemplate(id){
+  const t=S.templates.find(x=>x.id===id);
+  if(!t)return;
+  S.segs=JSON.parse(JSON.stringify(t.segs));
+  S.wu.on=!!t.wuOn;S.wu.min=t.wuMin||5;
+  S.cd.on=!!t.cdOn;S.cd.min=t.cdMin||5;
+  syncWuCdUI();
+  closeTemplatesModal();
+  toast('Modelo "'+t.name+'" carregado!');
+}
+function deleteTemplate(id){
+  if(!confirm('Excluir este modelo?'))return;
+  S.templates=S.templates.filter(x=>x.id!==id);
+  save();
+  renderTemplatesList();
+}
+
 // ── TREINO SETUP ──
 function setTrMode(m){S.trMode=m;document.getElementById('t-seg').classList.toggle('on',m==='seg');document.getElementById('t-livre').classList.toggle('on',m==='livre');document.getElementById('ui-seg').style.display=m==='seg'?'block':'none';document.getElementById('ui-livre').style.display=m==='livre'?'block':'none';}
 function setSegT(t){S.segT=t;document.getElementById('st-dist').classList.toggle('on',t==='dist');document.getElementById('st-time').classList.toggle('on',t==='time');document.getElementById('sd-ui').style.display=t==='dist'?'block':'none';document.getElementById('st-ui').style.display=t==='time'?'block':'none';}
@@ -1292,6 +1435,8 @@ function renderSegs(){
   const td=S.segs.filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
   const tt=S.segs.filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur,0);
   let sum=S.segs.length+' segmento(s)';if(td>0)sum+=' · '+td.toFixed(1)+' km';if(tt>0)sum+=' · '+tt+' min';
+  if(S.wu.on)sum+=' · 🔥 aquec. '+S.wu.min+'min';
+  if(S.cd.on)sum+=' · 🧘 relax. '+S.cd.min+'min';
   document.getElementById('tr-sum').textContent='✅ '+sum;document.getElementById('tr-ready').style.display='block';
 }
 
@@ -1299,6 +1444,8 @@ function renderSegs(){
 let _lz=null,_lkm=0,_half=false;
 
 function startTreino(){
+  if(S.wu.on) S.segs.unshift(buildWarmupSeg());
+  if(S.cd.on) S.segs.push(buildCooldownSeg());
   S.active=true;S.livre=false;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
   S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
   S._doneAnnounced=false;
@@ -1945,7 +2092,7 @@ function openDetail(idx){
   const mapWrap=document.getElementById('det-map-wrap');
   if(h.route&&h.route.length>1){
     mapWrap.style.display='block';
-    setTimeout(()=>initMapResult(h.route, h.zoneRoute||[]),300);
+    setTimeout(()=>initMapResult(h.route, h.zoneRoute||[], 'det-map-result'),300);
   } else {
     mapWrap.style.display='none';
   }
@@ -2284,6 +2431,7 @@ load();
 loadVoice();
 renderHome();
 renderSegs();
+syncWuCdUI();
 updateGttsUI();
 try{const sel=document.getElementById('gtts-voice-sel');if(sel)sel.value=_gttsVoice;}catch(e){}
 
