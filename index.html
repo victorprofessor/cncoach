@@ -825,7 +825,7 @@ function activateVoice(){
     speechSynthesis.speak(u);
   }
   loadVoice();
-  setTimeout(()=>say('Coach de voz ativado! Estou pronta para te guiar.'),500);
+  setTimeout(()=>say('Coach de voz ativado! Estou '+g('pronta','pronto')+' para te guiar.'),500);
 }
 
 // ── UI Google TTS ──
@@ -850,7 +850,7 @@ function saveGttsKey(){
   // Destrava áudio no gesto
   if(!_audioEl)_audioEl=new Audio();
   _audioEl.play().catch(()=>{});
-  setTimeout(()=>say('Olá! Voz neural do Google ativada. Estou pronta para te guiar nos treinos!'),300);
+  setTimeout(()=>say('Olá! Voz neural do Google ativada. Estou '+g('pronta','pronto')+' para te guiar nos treinos!'),300);
 }
 
 function removeGttsKey(){
@@ -860,6 +860,19 @@ function removeGttsKey(){
   toast('Chave removida. Usando voz do sistema.');
 }
 
+// Detecta gênero pela voz selecionada (B = masculina, resto = feminina)
+function voiceGender(){
+  return _gttsVoice.includes('-B')?'m':'f';
+}
+// Retorna palavra conforme gênero: g('pronta','pronto')
+function g(fem,masc){
+  return voiceGender()==='m'?masc:fem;
+}
+// Substantivo treinador(a)
+function coachWord(){
+  return g('sua treinadora','seu treinador');
+}
+
 function setGttsVoice(v){
   _gttsVoice=v;
   try{localStorage.setItem('cnc_gtts_voice',v);}catch(e){}
@@ -867,7 +880,7 @@ function setGttsVoice(v){
 
 function testGttsVoice(){
   say(pick([
-    'Oi! Sou sua treinadora. Vamos correr juntos hoje?',
+    'Oi! Sou '+coachWord()+'. Vamos correr juntos hoje?',
     'Bora treinar! Estou aqui pra te motivar do início ao fim.',
     'Preparado? Hoje é dia de superar seus limites!'
   ]));
