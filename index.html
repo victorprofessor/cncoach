@@ -1503,86 +1503,67 @@ function tick(){
 function initSegLogs(){
   S.segFcLog = S.segs.map(()=>({fc:[],done:false,announced:false}));
   S.curSegIdx = 0;
-}
-
-function getCurrentSegIdx(){
-  if(!S.segs.length) return -1;
-  let acc=0;
-  for(let i=0;i<S.segs.length;i++){
-    const seg=S.segs[i];
-    if(seg.mode==='time'){
-      // Segmento por tempo: usa segundos acumulados nos segmentos anteriores
-      const prevTime=S.segs.slice(0,i).filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur*60,0);
-      const timeInSeg=S.sec-prevTime;
-      if(timeInSeg<seg.dur*60) return i;
-      acc+=seg.dur*60;
-    } else {
-      acc+=seg.dist;
-      if(S.gps.dist<=acc) return i;
-    }
-  }
-  return S.segs.length-1;
+  S.segStartSec = 0;
+  S.segStartDist = 0;
 }
 
 function updateSegProgress(){
-  const idx=getCurrentSegIdx();
-  if(idx<0) return;
+  if(!S.segs.length) return;
 
   // Acumula FC do segmento atual
-  if(S.segFcLog&&S.segFcLog[idx]) S.segFcLog[idx].fc.push(S.fc);
+  if(S.segFcLog&&S.segFcLog[S.curSegIdx]) S.segFcLog[S.curSegIdx].fc.push(S.fc);
 
-  // Detecta conclusão de segmento
-  if(S.segFcLog&&idx>S.curSegIdx){
-    const prev=S.segs[S.curSegIdx];
+  const seg=S.segs[S.curSegIdx];
+  const isLast=S.curSegIdx===S.segs.length-1;
+  const elapsedSec=S.sec-S.segStartSec;
+  const elapsedDist=S.gps.dist-S.segStartDist;
+  const segDone = seg.mode==='time' ? elapsedSec>=seg.dur*60 : elapsedDist>=seg.dist;
+
+  if(segDone&&!isLast){
+    // Anuncia conclusão da fase e avança pra próxima
     const log=S.segFcLog[S.curSegIdx];
-    if(!log.announced){
+    if(log&&!log.announced){
       log.announced=true;
       const avgFC=log.fc.length?Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length):S.fc;
-      const inZone=avgFC>=prev.fcMin&&avgFC<=prev.fcMax;
-      const segName=prev.label||`Fase ${S.curSegIdx+1}`;
-      const next=S.segs[idx];
-      const nextName=next?`Próxima: ${next.label||'Fase '+(idx+1)} — zona ${ZI[next.zone].n}`:'';
-      say(inZone?`Fase "${segName}" concluída! Boa execução. ${nextName}`:`Fase "${segName}" concluída. ${nextName}`);
+      const inZone=avgFC>=seg.fcMin&&avgFC<=seg.fcMax;
+      const segName=seg.label||`Fase ${S.curSegIdx+1}`;
+      const next=S.segs[S.curSegIdx+1];
+      const nextName=next?`Próxima: ${next.label||'Fase '+(S.curSegIdx+2)} — zona ${ZI[next.zone].n}`:'';
+      if(seg.isWarmup) say(`Aquecimento concluído! ${nextName}`);
+      else if(seg.isCooldown) say(`Relaxamento concluído!`);
+      else say(inZone?`Fase "${segName}" concluída! Boa execução. ${nextName}`:`Fase "${segName}" concluída. ${nextName}`);
     }
-    S.curSegIdx=idx;
+    S.curSegIdx++;
+    S.segStartSec=S.sec;
+    S.segStartDist=S.gps.dist;
+  } else if(segDone&&isLast&&!S._doneAnnounced){
+    S._doneAnnounced=true;
+    say(`${n()}, você completou todas as fases! Continue correndo ou encerre o treino.`);
+    document.getElementById('mod-done').style.display='flex';
   }
 
-  // Avisa conclusão de todas as fases (só uma vez)
-  if(!S._doneAnnounced&&idx===S.segs.length-1){
-    const lastSeg=S.segs[idx];
-    let lastDone=false;
-    if(lastSeg.mode==='dist'){
-      const distAcc=S.segs.slice(0,idx).filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
-      if(S.gps.dist>=(distAcc+lastSeg.dist)*0.98) lastDone=true;
-    } else {
-      const timeAcc=S.segs.slice(0,idx).filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur*60,0);
-      if(S.sec>=(timeAcc+lastSeg.dur*60)*0.98) lastDone=true;
-    }
-    if(lastDone){
-      S._doneAnnounced=true;
-      say(`${n()}, você completou todas as fases! Continue correndo ou encerre o treino.`);
-      document.getElementById('mod-done').style.display='flex';
-    }
-  }
+  const idx=S.curSegIdx;
+  const curSeg=S.segs[idx];
+  const curElapsedSec=S.sec-S.segStartSec;
+  const curElapsedDist=S.gps.dist-S.segStartDist;
 
-  // Contador decrescente da fase atual
-  const seg=S.segs[idx];
+  // Contador decrescente da fase atual (relativo ao início real desta fase)
   let countdown='';
-  if(seg.mode==='dist'){
-    const distAcc=S.segs.slice(0,idx).filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
-    const remaining=Math.max(0,(distAcc+seg.dist)-S.gps.dist);
+  if(curSeg.mode==='dist'){
+    const remaining=Math.max(0,curSeg.dist-curElapsedDist);
     countdown=remaining.toFixed(2)+' km restante';
   } else {
-    const timeAcc=S.segs.slice(0,idx).filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur*60,0);
-    const remaining=Math.max(0,(timeAcc+seg.dur*60)-S.sec);
+    const remaining=Math.max(0,curSeg.dur*60-curElapsedSec);
     const rm=Math.floor(remaining/60),rs=remaining%60;
     countdown=pad(rm)+':'+pad(rs)+' restante';
   }
   document.getElementById('seg-countdown').textContent=countdown;
 
-  // Info da fase
-  const segName=seg.label||`Fase ${idx+1}`;
-  document.getElementById('seg-info').textContent=`${idx+1}/${S.segs.length}: ${segName} · ${seg.fcMin}–${seg.fcMax} bpm`;
+  // Info da fase — sempre mostra a FC atual junto com a fase.
+  // Aquecimento/relaxamento não têm alvo de FC exigido, então omite a faixa.
+  const segName=curSeg.label||`Fase ${idx+1}`;
+  const alvoTxt=(curSeg.isWarmup||curSeg.isCooldown)?'':` · Alvo: ${curSeg.fcMin}–${curSeg.fcMax} bpm`;
+  document.getElementById('seg-info').textContent=`${idx+1}/${S.segs.length}: ${segName} · Atual: ${S.fc} bpm${alvoTxt}`;
 
   // Barra visual
   renderSegBarActive(idx);
@@ -1590,9 +1571,12 @@ function updateSegProgress(){
 
 function renderSegBarActive(activeIdx){
   const el=document.getElementById('seg-bar');
-  const tot=S.segs.reduce((a,s)=>a+(s.dist||s.dur||1),0);
+  // Aquecimento/relaxamento entram com peso fixo e menor no gráfico,
+  // já que misturam unidade (minutos) com as demais fases (km)
+  const weight=s=>(s.isWarmup||s.isCooldown)?0.4:(s.dist||s.dur||1);
+  const tot=S.segs.reduce((a,s)=>a+weight(s),0);
   el.innerHTML=S.segs.map((s,i)=>{
-    const w=((s.dist||s.dur||1)/tot*100).toFixed(1);
+    const w=(weight(s)/tot*100).toFixed(1);
     const isCur=i===activeIdx;
     const isDone=i<activeIdx;
     const op=isDone?'0.35':'1';
@@ -1606,6 +1590,7 @@ function calcScoreAccum(){
   if(!S.segs.length||!S.segFcLog) return;
   let tot=0, wt=0;
   S.segs.forEach((seg,i)=>{
+    if(seg.isWarmup||seg.isCooldown) return; // aquecimento/relaxamento não exigem FC — fora da pontuação
     const log=S.segFcLog[i];
     if(!log||!log.fc.length) return; // segmento não iniciado — não conta
     const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
@@ -1628,9 +1613,11 @@ function calcScoreAccum(){
     tot+=pts*w; wt+=w;
   });
 
-  // Penaliza se interrompeu antes — segmentos não iniciados valem 0
-  const segsIniciados=S.segFcLog.filter(l=>l.fc.length>0).length;
-  const totalSegs=S.segs.length;
+  // Penaliza se interrompeu antes — segmentos não iniciados valem 0 (ignora aquecimento/relaxamento)
+  const scorableSegs=S.segs.filter(s=>!s.isWarmup&&!s.isCooldown);
+  const scorableLogs=S.segs.map((s,i)=>({s,log:S.segFcLog[i]})).filter(o=>!o.s.isWarmup&&!o.s.isCooldown);
+  const segsIniciados=scorableLogs.filter(o=>o.log&&o.log.fc.length>0).length;
+  const totalSegs=scorableSegs.length||1;
   const completionFactor=segsIniciados/totalSegs; // 0 a 1
 
   const base=wt>0?Math.round(tot/wt):0;
@@ -1651,13 +1638,14 @@ const COACH_Z={
 };
 
 function coachPeriodic(zone,m){
-  const km=parseFloat(S.gps.dist.toFixed(1));
+  const NEAR_BPM=5; // diferença considerada "perto do alvo"
 
   // A cada 30s: verifica FC vs zona alvo do segmento atual
+  // (aquecimento/relaxamento não exigem FC — pula esse aviso)
   if(S.sec>30&&S.sec%30===0&&S.segs.length){
-    const idx=getCurrentSegIdx();
-    if(idx>=0){
-      const seg=S.segs[idx];
+    const idx=S.curSegIdx;
+    const seg=S.segs[idx];
+    if(seg&&!seg.isWarmup&&!seg.isCooldown){
       const fc=S.fc;
       const segName=seg.label||`Fase ${idx+1}`;
       if(fc>=seg.fcMin&&fc<=seg.fcMax){
@@ -1668,19 +1656,35 @@ function coachPeriodic(zone,m){
           `FC no alvo, ${n()}! ${fc} bpm — perfeito para essa fase.`,
         ]));
       } else if(fc<seg.fcMin){
-        // Abaixo
-        say(pick([
-          `${n()}, aumenta o ritmo! FC atual ${fc}, precisa chegar em ${seg.fcMin} bpm para a fase "${segName}".`,
-          `Acelera, ${n()}! Você tá em ${fc} bpm, o alvo é ${seg.fcMin}–${seg.fcMax} bpm.`,
-          `Falta esforço, ${n()}! Sobe a FC para pelo menos ${seg.fcMin} bpm.`,
-        ]));
+        const diff=seg.fcMin-fc;
+        if(diff<=NEAR_BPM){
+          // Perto do alvo — sem alarde
+          say(pick([
+            `${n()}, tá quase lá! Só ${diff} bpm pra entrar na fase "${segName}".`,
+            `Perto do alvo, ${n()}! Sobe só um pouquinho o ritmo.`,
+          ]));
+        } else {
+          say(pick([
+            `${n()}, aumenta o ritmo! FC atual ${fc}, precisa chegar em ${seg.fcMin} bpm para a fase "${segName}".`,
+            `Acelera, ${n()}! Você tá em ${fc} bpm, o alvo é ${seg.fcMin}–${seg.fcMax} bpm.`,
+            `Falta esforço, ${n()}! Sobe a FC para pelo menos ${seg.fcMin} bpm.`,
+          ]));
+        }
       } else {
-        // Acima
-        say(pick([
-          `${n()}, diminui o ritmo! FC em ${fc}, o alvo da fase "${segName}" é ${seg.fcMax} bpm no máximo.`,
-          `Segura, ${n()}! Você tá em ${fc} bpm, acima do planejado. Traz pra ${seg.fcMax} bpm.`,
-          `Reduz a intensidade, ${n()}! FC de ${fc} tá alta demais para essa fase.`,
-        ]));
+        const diff=fc-seg.fcMax;
+        if(diff<=NEAR_BPM){
+          // Levemente acima — sem alarde
+          say(pick([
+            `${n()}, tá quase no alvo! Só ${diff} bpm acima — segura leve o ritmo.`,
+            `Perto do ideal, ${n()}! FC de ${fc}, é só ajeitar um pouco.`,
+          ]));
+        } else {
+          say(pick([
+            `${n()}, diminui o ritmo! FC em ${fc}, o alvo da fase "${segName}" é ${seg.fcMax} bpm no máximo.`,
+            `Segura, ${n()}! Você tá em ${fc} bpm, acima do planejado. Traz pra ${seg.fcMax} bpm.`,
+            `Reduz a intensidade, ${n()}! FC de ${fc} tá alta demais para essa fase.`,
+          ]));
+        }
       }
       return;
     }
@@ -1692,8 +1696,8 @@ function coachPeriodic(zone,m){
     return;
   }
 
-  // Marcadores de km
-  const ki=Math.floor(km);
+  // Marcadores de km — usa a distância real (sem arredondar antes), senão anuncia "2km" com 1,96km reais
+  const ki=Math.floor(S.gps.dist);
   if(ki>_lkm&&ki>0){
     _lkm=ki;
     const msg={1:`Primeiro quilômetro, ${n()}! Ótimo começo.`,2:`Dois quilômetros, ${n()}! Mandando bem!`,3:`Três quilômetros, ${n()}! Consistência total.`,5:`CINCO QUILÔMETROS, ${n()}! Que treino!`}[ki];
@@ -1702,8 +1706,8 @@ function coachPeriodic(zone,m){
 }
 
 function getCurrentTargetZone(){
-  const idx=getCurrentSegIdx();
-  return idx>=0?S.segs[idx].zone:null;
+  const idx=S.curSegIdx;
+  return(S.segs.length&&idx>=0&&S.segs[idx])?S.segs[idx].zone:null;
 }
 
 function updateZoneUI(zone){
@@ -1748,6 +1752,7 @@ function finishTreino(){
     let tot=0,wt=0;
     if(S.segs.length&&S.segFcLog){
       S.segs.forEach((seg,i)=>{
+        if(seg.isWarmup||seg.isCooldown) return; // aquecimento/relaxamento não exigem FC — fora da pontuação
         const log=S.segFcLog[i];
         if(!log||!log.fc.length)return;
         const avg=Math.round(log.fc.reduce((a,v)=>a+v,0)/log.fc.length);
@@ -1765,8 +1770,9 @@ function finishTreino(){
         tot+=pts*w;wt+=w;
       });
     }
-    const segsFeitos=S.segFcLog?S.segFcLog.filter(l=>l.fc.length>0).length:0;
-    const totalSegs=S.segs.length||0;
+    const scorableSegs=S.segs.filter(s=>!s.isWarmup&&!s.isCooldown);
+    const segsFeitos=S.segFcLog?scorableSegs.reduce((a,s)=>{const i=S.segs.indexOf(s);return a+(S.segFcLog[i]&&S.segFcLog[i].fc.length>0?1:0);},0):0;
+    const totalSegs=scorableSegs.length||0;
     const comp=totalSegs>0&&segsFeitos>0?segsFeitos/totalSegs:0;
     const base=wt>0?Math.round(tot/wt):0;
     // Treino livre: sem segmentos definidos, pontuação não é aplicável — usa 50 como neutro
