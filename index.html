@@ -129,6 +129,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 /* ZONE LIST */
 .zrow{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #2a3a55;}
 .zdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;}
+@keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.35);opacity:.75;}}
 </style>
 </head>
 <body>
@@ -233,16 +234,24 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     </div>
     <label class="lbl">FC de Repouso (bpm)</label>
     <input class="inp" id="e-fcrep" type="number" placeholder="60" inputmode="numeric">
-    <div class="alert a-i">Corra ou caminhe pelo máximo de distância em 12 minutos. O GPS medirá automaticamente.</div>
+    <div class="alert a-i">Avaliação guiada de 12 minutos em 4 estágios de esforço crescente: caminhada leve → moderado → forte → máximo. O coach avisa por voz cada mudança e o GPS mede a distância.</div>
     <div class="alert a-w">⌚ Tenha seu frequencímetro pronto.</div>
     <button class="btn btn-b" onclick="e1next()">Avançar →</button>
   </div>
 
-  <!-- Etapa 2 -->
+  <!-- Etapa 2 — Avaliação guiada por estágios (estilo miCoach) -->
   <div id="e2" style="display:none;">
-    <div style="font-size:20px;font-weight:800;margin-bottom:4px;">Avaliação ativa</div>
-    <div style="font-size:13px;color:#7a8fbb;margin-bottom:14px;">12 minutos — corra o máximo que conseguir</div>
-    <div class="card" style="text-align:center;padding:24px;">
+    <div style="font-size:20px;font-weight:800;margin-bottom:4px;">Avaliação guiada</div>
+    <div style="font-size:13px;color:#7a8fbb;margin-bottom:14px;">12 minutos em 4 estágios de esforço crescente — o coach guia por voz</div>
+
+    <div class="zone-big zb" id="a-stage-wrap" style="padding:16px;margin-bottom:8px;">
+      <div style="font-size:12px;opacity:.7;" id="a-stage-num">Estágio 1 de 4</div>
+      <div class="zn cb" style="font-size:20px;" id="a-stage-name">Caminhada leve</div>
+      <div style="font-size:12px;margin-top:4px;opacity:.85;" id="a-stage-inst">Comece caminhando num ritmo confortável</div>
+    </div>
+    <div class="seg-bar" id="a-stage-bar" style="height:10px;margin-bottom:12px;"></div>
+
+    <div class="card" style="text-align:center;padding:20px;">
       <div class="ct">Tempo Restante</div>
       <div class="coop-t" id="c-time">12:00</div>
       <div style="font-size:13px;color:#7a8fbb;margin-top:6px;" id="c-st">Pronto</div>
@@ -252,8 +261,17 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
         <button class="btn btn-s" id="c-rst" style="width:auto;padding:10px 20px;display:none;" onclick="cReset()">↺ Reset</button>
       </div>
     </div>
-    <label class="lbl" style="margin-top:4px;">FC durante a avaliação (bpm)</label>
-    <input class="inp" id="e-fctest" type="number" placeholder="Ex: 165" inputmode="numeric">
+
+    <div class="fc-wrap">
+      <div class="ct">FC ao vivo <span id="eval-ble-tag" style="color:#00c853;display:none;">• BLE automático</span></div>
+      <div class="fc-val" id="eval-fc-v" style="font-size:36px;">70</div>
+      <input type="range" min="40" max="220" value="70" id="eval-fc-sl" oninput="setFC(+this.value)">
+    </div>
+
+    <label class="lbl" style="margin-top:4px;">FC máxima atingida (bpm) — preenchida automaticamente</label>
+    <input class="inp" id="e-fctest" type="number" placeholder="Ex: 185" inputmode="numeric">
+    <label class="lbl">Distância manual (km) — use apenas se o GPS falhar (ex.: esteira)</label>
+    <input class="inp" id="e-mdist" type="number" step="0.01" placeholder="Ex: 2.30" inputmode="decimal">
     <div id="e2-ok" class="alert a-ok" style="display:none;"></div>
     <button class="btn btn-b" id="e2-calc" style="display:none;" onclick="e2calc()">Calcular →</button>
   </div>
@@ -273,6 +291,8 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       </div>
     </div>
     <div class="card"><div class="ct">Suas 4 Zonas</div><div id="e-zones"></div></div>
+    <div class="card" id="e-stages-card" style="display:none;"><div class="ct">FC medida por estágio</div><div id="e-stages"></div></div>
+    <div class="card"><div class="ct">🎯 FC Alvo — Fórmula de Karvonen</div><div id="e-karvonen"></div></div>
     <div class="card"><div class="ct">Plano Recomendado</div><div id="e-plan"></div></div>
     <button class="btn btn-g" onclick="eSave()">✓ Salvar e Começar</button>
   </div>
@@ -396,7 +416,10 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div style="font-size:13px;color:#7a8fbb;" id="az-score-d">Execute o treino na zona correta</div>
     </div>
 
-    <button class="btn btn-r" onclick="finishTreino()">⏹ Finalizar Treino</button>
+    <div class="row2">
+      <button class="btn btn-s" id="btn-pause" onclick="togglePause()">⏸ Pausar</button>
+      <button class="btn btn-r" onclick="finishTreino()">⏹ Finalizar</button>
+    </div>
   </div>
 </div>
 
@@ -515,6 +538,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       </div>
     </div>
     <div class="card"><div class="ct">Zonas</div><div id="pf-zones"></div></div>
+    <div class="card"><div class="ct">🎯 FC Alvo — Fórmula de Karvonen</div><div id="pf-karvonen"></div></div>
     <div class="card"><div class="ct">Evolução</div><div id="pf-chart" style="display:flex;align-items:flex-end;gap:4px;height:60px;"></div></div>
     <button class="btn btn-s" onclick="goTo('eval')">Refazer Avaliação</button>
   </div>
@@ -566,6 +590,27 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <div style="margin-top:12px;padding-top:10px;border-top:1px solid #2a3a55;display:flex;justify-content:space-between;align-items:center;">
       <div style="font-size:12px;color:#7a8fbb;">🔥 Calorias esta semana</div>
       <div style="font-size:16px;font-weight:800;color:#ff9800;" id="goal-kcal-week">0 kcal</div>
+    </div>
+  </div>
+
+  <!-- Plano progressivo com objetivo (estilo miCoach) -->
+  <div class="card" style="margin-bottom:14px;" id="prog-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div class="ct" style="margin:0;">🏁 Plano Progressivo</div>
+      <div id="prog-phase" style="font-size:12px;font-weight:700;color:#3b9eff;"></div>
+    </div>
+    <div id="prog-off">
+      <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Escolha um objetivo e o app monta a progressão semana a semana: base → construção, com semanas de recuperação a cada 4 e polimento final.</div>
+      <div class="row2">
+        <div><label class="lbl">Objetivo</label><select class="inp" id="prog-goal"><option value="5k">5 km</option><option value="10k" selected>10 km</option><option value="21k">21 km</option></select></div>
+        <div><label class="lbl">Duração</label><select class="inp" id="prog-weeks"><option value="4">4 semanas</option><option value="6">6 semanas</option><option value="8" selected>8 semanas</option><option value="12">12 semanas</option><option value="16">16 semanas</option></select></div>
+      </div>
+      <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:0;" onclick="startProgPlan()">Iniciar plano</button>
+    </div>
+    <div id="prog-on" style="display:none;">
+      <div style="font-size:14px;font-weight:800;" id="prog-label">—</div>
+      <div style="font-size:12px;color:#7a8fbb;margin-top:2px;" id="prog-sub">—</div>
+      <button class="btn btn-s" style="font-size:12px;padding:8px;margin:10px 0 0;" onclick="endProgPlan()">Encerrar plano</button>
     </div>
   </div>
 
@@ -743,7 +788,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
 <script>
 // ── STATE ──
-const S={user:null,segs:[],hist:[],plan:{},goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],dist:0,last:null},active:false,livre:false,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cSec:720,cIv:null,cOn:false,wId:null,segT:'dist',trMode:'seg'};
+const S={user:null,segs:[],hist:[],plan:{},planCfg:null,goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],zoneRoute:[],dist:0,last:null},active:false,livre:false,paused:false,pauseTs:0,pausedMs:0,startTs:0,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cOn:false,aStarted:false,aStart:0,aPausedMs:0,aPauseTs:0,aElapsed:0,aLastSec:-1,aStage:-1,aPeak:0,aStageLogs:[[],[],[],[]],wId:null,segT:'dist',trMode:'seg'};
 
 // ── ZONES ──
 const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#3b9eff',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
@@ -754,11 +799,11 @@ function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.mi
 
 // ── STORAGE ──
 function load(){
-  try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.goals=d.g||{distMeta:0,trMeta:0,peso:70};S.templates=d.t||[];S.wu=d.wu||{on:false,min:5};S.cd=d.cd||{on:false,min:5};}catch(e){}
+  try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.planCfg=d.pc||null;S.goals=d.g||{distMeta:0,trMeta:0,peso:70};S.templates=d.t||[];S.wu=d.wu||{on:false,min:5};S.cd=d.cd||{on:false,min:5};}catch(e){}
   try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
   try{const v=localStorage.getItem('cnc_gtts_voice');if(v)_gttsVoice=v;}catch(e){}
 }
-function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},g:S.goals||{},t:S.templates||[],wu:S.wu||{on:false,min:5},cd:S.cd||{on:false,min:5}}));}catch(e){}}
+function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},pc:S.planCfg||null,g:S.goals||{},t:S.templates||[],wu:S.wu||{on:false,min:5},cd:S.cd||{on:false,min:5}}));}catch(e){toast('⚠ Armazenamento cheio — exporte o histórico e exclua treinos antigos');}}
 
 // ── TOAST ──
 let _tto;
@@ -959,9 +1004,11 @@ function activateGPS(){
   },err=>toast('GPS: '+err.message),{enableHighAccuracy:true,timeout:12000});
 }
 
-function startGPS(){
+function startGPS(fresh){
   if(!navigator.geolocation)return;
-  S.gps.route=[];S.gps.dist=0;S.gps.last=null;S.gps.zoneRoute=[];
+  // fresh=true zera o percurso; fresh=false retoma (pausa) preservando distância e rota
+  if(fresh!==false){S.gps.route=[];S.gps.dist=0;S.gps.last=null;S.gps.zoneRoute=[];}
+  if(S.wId!==null){navigator.geolocation.clearWatch(S.wId);S.wId=null;}
   S.wId=navigator.geolocation.watchPosition(pos=>{
     const la=pos.coords.latitude,lo=pos.coords.longitude;
     const acc=pos.coords.accuracy||999;
@@ -1141,9 +1188,6 @@ function initMapResult(route, zoneRoute, containerId){
   }catch(e){ console.warn('Leaflet result erro:',e); }
 }
 
-// Mantém função drawMap como stub para não quebrar referências antigas
-function drawMap(id){ if(id==='map-cv') updateMapLive(); }
-
 // ── BLE ──
 const BLE={dev:null,char:null,on:false,HR:'0000180d-0000-1000-8000-00805f9b34fb',HC:'00002a37-0000-1000-8000-00805f9b34fb'};
 
@@ -1160,11 +1204,21 @@ async function bleConnect(){
       const v=e.target.value,f=v.getUint8(0),fc=(f&1)?v.getUint16(1,true):v.getUint8(1);
       if(fc>20&&fc<250)setFC(fc);
     });
+    BLE.dev.addEventListener('gattserverdisconnected',()=>{
+      BLE.on=false;
+      const b=document.getElementById('ble-btn');if(b){b.textContent='📡 Reconectar Frequencímetro BLE';b.disabled=false;}
+      document.getElementById('ble-tag').style.display='none';
+      document.getElementById('active-ble-tag').style.display='none';
+      const evb=document.getElementById('eval-ble-tag');if(evb)evb.style.display='none';
+      toast('⚠ Sensor BLE desconectado');
+      say('Atenção, '+n()+': o sensor de frequência cardíaca desconectou! Verifique o sensor ou ajuste a FC manualmente.');
+    });
     BLE.on=true;
     document.getElementById('ble-btn').textContent='✓ '+BLE.dev.name;
     document.getElementById('ble-btn').disabled=true;
     document.getElementById('ble-tag').style.display='inline';
     document.getElementById('active-ble-tag').style.display='inline';
+    const evt=document.getElementById('eval-ble-tag');if(evt)evt.style.display='inline';
     say('Sensor '+BLE.dev.name+' conectado!');
   }catch(e){if(e.name!=='NotFoundError')toast('BLE: '+e.message);}
 }
@@ -1176,6 +1230,8 @@ function setFC(v){
   document.getElementById('setup-fc-v').textContent=v;
   document.getElementById('active-fc-sl').value=v;
   document.getElementById('active-fc-lbl').textContent=v+' bpm';
+  const evs=document.getElementById('eval-fc-sl');if(evs)evs.value=v;
+  const evv=document.getElementById('eval-fc-v');if(evv)evv.textContent=v;
   document.getElementById('az-fc').textContent=v;
   document.getElementById('hdr-fc').textContent=v;
   if(S.user){const z=zoneFor(v);document.getElementById('setup-zone-l').textContent=z?'Zona '+ZI[z].n+' — '+ZI[z].l:'Abaixo das zonas';}
@@ -1219,6 +1275,19 @@ function renderHome(){
   document.getElementById('h-ps').innerHTML=pl.segs.map(s=>`<span style="display:inline-block;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${ZI[s.z].hex}22;color:${ZI[s.z].hex};margin:2px;">${ZI[s.z].n} · ${s.l}</span>`).join('');
 }
 
+// ── KARVONEN — FC alvo por zona e FC pico ──
+// FC alvo = FC repouso + %intensidade × (FC máxima − FC repouso)
+const Z_PCT={blue:[50,62],green:[62,74],yellow:[74,86],red:[86,100]};
+function karvonenFC(u,pct){return Math.round(u.fcrep+(u.fcMax-u.fcrep)*pct/100);}
+function karvonenHTML(u){
+  const rows=['blue','green','yellow','red'].map(k=>{
+    const p=Z_PCT[k],mid=Math.round((p[0]+p[1])/2),alvo=karvonenFC(u,mid);
+    return `<div class="zrow"><div><span class="zdot" style="background:${ZI[k].hex};"></span><span style="font-size:13px;font-weight:700;color:${ZI[k].hex};">${ZI[k].n}</span><div style="font-size:11px;color:#7a8fbb;margin-left:16px;">${p[0]}–${p[1]}% da FC de reserva</div></div><div style="text-align:right;"><div style="font-size:15px;font-weight:800;">${alvo} bpm</div><div style="font-size:11px;color:#7a8fbb;">alvo · ${mid}%</div></div></div>`;
+  }).join('');
+  const pico=`<div class="zrow" style="border-bottom:none;"><div><span class="zdot" style="background:#e8f0fe;"></span><span style="font-size:13px;font-weight:700;">FC Pico</span><div style="font-size:11px;color:#7a8fbb;margin-left:16px;">100% — esforço máximo, não sustentar</div></div><div style="text-align:right;"><div style="font-size:15px;font-weight:800;color:#ff3d3d;">${u.fcMax} bpm</div></div></div>`;
+  return rows+pico;
+}
+
 function zonesHTML(z){return['blue','green','yellow','red'].map(k=>`<div class="zrow"><div><span class="zdot" style="background:${ZI[k].hex};"></span><span style="font-size:13px;font-weight:700;color:${ZI[k].hex};">${ZI[k].n}</span><div style="font-size:11px;color:#7a8fbb;margin-left:16px;">${ZI[k].l}</div></div><div style="font-size:13px;font-weight:700;color:#7a8fbb;">${z[k].min}–${z[k].max}</div></div>`).join('');}
 
 // ── AVALIAÇÃO ──
@@ -1235,33 +1304,121 @@ function e1next(){
   activateGPS();
 }
 
-// Cooper
+// ── AVALIAÇÃO GUIADA (estilo miCoach) — 4 estágios de esforço crescente ──
+const A_STAGES=[
+  {name:'Caminhada leve',inst:'Caminhe num ritmo confortável, respirando tranquilo',voice:'Estágio 1: caminhada leve. Ritmo confortável, só para aquecer o corpo.'},
+  {name:'Ritmo moderado',inst:'Trote leve — você ainda consegue conversar',voice:'Estágio 2: ritmo moderado. Comece a trotar, mantendo a conversa possível.'},
+  {name:'Ritmo forte',inst:'Corrida firme — respiração pesada, fala difícil',voice:'Estágio 3: ritmo forte! Acelere. A respiração vai pesar, é normal.'},
+  {name:'Esforço máximo',inst:'Tudo que você tem até o final!',voice:'Estágio 4: esforço máximo! Dê tudo que você tem até o fim!'}
+];
+let _aT=null;
+
+function aStageIdx(elapsed){return Math.min(3,Math.floor(elapsed/180));}
+
+function renderAStageBar(idx){
+  const el=document.getElementById('a-stage-bar');if(!el)return;
+  const cols=['#3b9eff','#00c853','#ffd600','#ff3d3d'];
+  el.innerHTML=A_STAGES.map((s,i)=>`<div class="seg-p" style="flex:1;background:${cols[i]}${i<idx?'44':i===idx?'99':'22'};border:1px solid ${cols[i]};"></div>`).join('');
+}
+
+function aSetStageUI(idx){
+  const cols=[['zb','cb'],['zg','cg'],['zy','cy'],['zr','cr']];
+  const w=document.getElementById('a-stage-wrap'),nm=document.getElementById('a-stage-name');
+  if(!w||!nm)return;
+  w.className='zone-big '+cols[idx][0];nm.className='zn '+cols[idx][1];nm.style.fontSize='20px';
+  document.getElementById('a-stage-num').textContent='Estágio '+(idx+1)+' de 4';
+  nm.textContent=A_STAGES[idx].name;
+  document.getElementById('a-stage-inst').textContent=A_STAGES[idx].inst;
+  renderAStageBar(idx);
+}
+
 function cStart(){
-  if(S.cOn)return;S.cOn=true;
+  if(S.cOn)return;
+  const resuming=S.aStarted&&S.aElapsed>0;
+  S.cOn=true;S.aStarted=true;
+  if(!resuming){
+    S.aStart=Date.now();S.aPausedMs=0;S.aElapsed=0;S.aLastSec=-1;S.aStageLogs=[[],[],[],[]];S.aStage=-1;S.aPeak=0;
+    startGPS(true);
+    say(n()+', avaliação iniciada! São 4 estágios de 3 minutos, do leve ao máximo. '+A_STAGES[0].voice);
+  } else {
+    S.aPausedMs+=Date.now()-S.aPauseTs;
+    S.gps.last=null; // evita salto de distância pelo deslocamento durante a pausa
+    startGPS(false);
+    say('Avaliação retomada, '+n()+'! 3... 2... 1... vai!');
+  }
+  reqWake();
   document.getElementById('c-btn').textContent='⏸ Pausar';document.getElementById('c-btn').onclick=cPause;
   document.getElementById('c-rst').style.display='inline-block';
-  document.getElementById('c-st').textContent='Corra o máximo!';
-  say(n()+', avaliação iniciada! Corra o máximo que conseguir nos 12 minutos!');
-  startGPS();
-  S.cIv=setInterval(()=>{
-    S.cSec--;
-    const m=Math.floor(S.cSec/60),s=S.cSec%60;
-    document.getElementById('c-time').textContent=pad(m)+':'+pad(s);
-    document.getElementById('c-dist').textContent=S.gps.dist.toFixed(2)+' km';
-    if(S.cSec===360)say('Metade do tempo, '+n()+'! Não baixa o ritmo!');
-    if(S.cSec===120)say('Últimos 2 minutos, '+n()+'! Força!');
-    if(S.cSec<=0)cDone();
-  },1000);
+  document.getElementById('c-st').textContent='Em andamento';
+  _aT=setInterval(aTick,500);
 }
-function cPause(){clearInterval(S.cIv);S.cOn=false;stopGPS();document.getElementById('c-btn').textContent='▶ Continuar';document.getElementById('c-btn').onclick=cStart;document.getElementById('c-st').textContent='Pausado';}
-function cDone(){clearInterval(S.cIv);S.cOn=false;stopGPS();document.getElementById('c-time').textContent='00:00';document.getElementById('c-st').textContent='✅ Concluído!';document.getElementById('c-btn').style.display='none';document.getElementById('e2-ok').style.display='block';document.getElementById('e2-ok').textContent='Distância: '+S.gps.dist.toFixed(2)+' km ('+Math.round(S.gps.dist*1000)+' m)';document.getElementById('e2-calc').style.display='block';say(n()+', avaliação concluída! Excelente esforço!');}
-function cReset(){clearInterval(S.cIv);S.cOn=false;S.cSec=720;S.gps.dist=0;S.gps.route=[];S.gps.last=null;document.getElementById('c-time').textContent='12:00';document.getElementById('c-st').textContent='Pronto';document.getElementById('c-dist').textContent='0.00 km';document.getElementById('c-btn').textContent='▶ Iniciar';document.getElementById('c-btn').onclick=cStart;document.getElementById('c-btn').style.display='inline-block';document.getElementById('c-rst').style.display='none';document.getElementById('e2-ok').style.display='none';document.getElementById('e2-calc').style.display='none';}
+
+function aTick(){
+  // Tempo real por timestamp — imune a throttling com tela bloqueada
+  const elapsed=Math.floor((Date.now()-S.aStart-S.aPausedMs)/1000);
+  const remaining=Math.max(0,720-elapsed);
+  document.getElementById('c-time').textContent=pad(Math.floor(remaining/60))+':'+pad(remaining%60);
+  document.getElementById('c-dist').textContent=S.gps.dist.toFixed(2)+' km';
+  const st=aStageIdx(elapsed);
+  if(st!==S.aStage&&remaining>0){S.aStage=st;aSetStageUI(st);if(elapsed>5)say(A_STAGES[st].voice);}
+  // Registra FC 1x por segundo no estágio atual (compensa segundos perdidos)
+  if(elapsed!==S.aLastSec){
+    const gap=S.aLastSec<0?1:Math.min(elapsed-S.aLastSec,600);
+    for(let k=0;k<gap;k++)S.aStageLogs[st].push(S.fc);
+    S.aLastSec=elapsed;
+    if(S.fc>S.aPeak)S.aPeak=S.fc;
+  }
+  S.aElapsed=elapsed;
+  if(remaining===360)say('Metade da avaliação, '+n()+'! Mantém o foco.');
+  if(remaining<=0)cDone();
+}
+
+function cPause(){
+  clearInterval(_aT);S.cOn=false;S.aPauseTs=Date.now();stopGPS();releaseWake();
+  document.getElementById('c-btn').textContent='▶ Continuar';document.getElementById('c-btn').onclick=cStart;
+  document.getElementById('c-st').textContent='Pausado — distância preservada';
+}
+
+function cDone(){
+  clearInterval(_aT);S.cOn=false;stopGPS();releaseWake();
+  document.getElementById('c-time').textContent='00:00';
+  document.getElementById('c-st').textContent='✅ Concluído!';
+  document.getElementById('c-btn').style.display='none';
+  if(S.aPeak)document.getElementById('e-fctest').value=S.aPeak; // FC real medida entra no cálculo
+  document.getElementById('e2-ok').style.display='block';
+  document.getElementById('e2-ok').textContent='Distância: '+S.gps.dist.toFixed(2)+' km ('+Math.round(S.gps.dist*1000)+' m)'+(S.aPeak?' · FC pico: '+S.aPeak+' bpm':'');
+  document.getElementById('e2-calc').style.display='block';
+  say(n()+', avaliação concluída! Excelente esforço! Toque em calcular para ver suas zonas.');
+}
+
+function cReset(){
+  clearInterval(_aT);S.cOn=false;S.aStarted=false;S.aElapsed=0;S.aPeak=0;S.aStageLogs=[[],[],[],[]];S.aStage=-1;S.aLastSec=-1;
+  stopGPS();releaseWake();
+  S.gps.dist=0;S.gps.route=[];S.gps.last=null;S.gps.zoneRoute=[];
+  const ct=document.getElementById('c-time');if(!ct)return;
+  ct.textContent='12:00';
+  document.getElementById('c-st').textContent='Pronto';
+  document.getElementById('c-dist').textContent='0.00 km';
+  document.getElementById('c-btn').textContent='▶ Iniciar';document.getElementById('c-btn').onclick=cStart;
+  document.getElementById('c-btn').style.display='inline-block';
+  document.getElementById('c-rst').style.display='none';
+  document.getElementById('e2-ok').style.display='none';
+  document.getElementById('e2-calc').style.display='none';
+  aSetStageUI(0);
+}
 
 function e2calc(){
-  const dist=S.gps.dist>0?S.gps.dist*1000:0;
-  if(dist<100){alert('Distância GPS insuficiente. Verifique o GPS.');return;}
-  const idade=parseInt(document.getElementById('e-idade').value),sexo=document.getElementById('e-sexo').value,fcrep=parseInt(document.getElementById('e-fcrep').value),fcMax=220-idade,zones=calcZones(fcMax,fcrep),res=cooperScore(dist,sexo);
-  _te={nome:document.getElementById('e-nome').value.trim(),idade,sexo,fcrep,fcMax,zones,score:res.s,scoreLabel:res.l,scoreDesc:res.d,dist};
+  const mdist=parseFloat(document.getElementById('e-mdist').value)||0;
+  let dist=S.gps.dist>0?S.gps.dist*1000:0;
+  if(dist<100&&mdist>0)dist=mdist*1000; // fallback manual (esteira / GPS falhou)
+  if(dist<100){alert('Distância insuficiente. Verifique o GPS ou informe a distância manual.');return;}
+  const idade=parseInt(document.getElementById('e-idade').value),sexo=document.getElementById('e-sexo').value,fcrep=parseInt(document.getElementById('e-fcrep').value);
+  // FC máxima calibrada: usa a FC real medida no teste quando for maior que a fórmula por idade
+  const fcTest=parseInt(document.getElementById('e-fctest').value)||0;
+  const fcMax=Math.max(220-idade,fcTest);
+  const zones=calcZones(fcMax,fcrep),res=cooperScore(dist,sexo);
+  const stages=(S.aStageLogs||[]).map((log,i)=>({name:A_STAGES[i].name,avg:log&&log.length?Math.round(log.reduce((a,v)=>a+v,0)/log.length):null}));
+  _te={nome:document.getElementById('e-nome').value.trim(),idade,sexo,fcrep,fcMax,fcTest,zones,score:res.s,scoreLabel:res.l,scoreDesc:res.d,dist,stages};
   document.getElementById('e2').style.display='none';document.getElementById('e3').style.display='block';
   document.getElementById('s2').className='sd done';document.getElementById('s3').className='sd on';
   document.getElementById('e-sc').textContent=res.s;
@@ -1269,8 +1426,19 @@ function e2calc(){
   document.getElementById('e-arc').style.stroke=res.s>=7?'#00c853':res.s>=4?'#ffd600':'#ff3d3d';
   document.getElementById('e-lb').textContent=res.l;document.getElementById('e-ds').textContent=res.d;
   document.getElementById('e-zones').innerHTML=zonesHTML(zones);
+  document.getElementById('e-karvonen').innerHTML=karvonenHTML(_te);
+  // FC medida por estágio (avaliação guiada)
+  const stCard=document.getElementById('e-stages-card');
+  const hasSt=stages.some(x=>x.avg);
+  if(stCard){
+    stCard.style.display=hasSt?'block':'none';
+    if(hasSt){
+      const cols=['#3b9eff','#00c853','#ffd600','#ff3d3d'];
+      document.getElementById('e-stages').innerHTML=stages.map((x,i)=>`<div class="zrow"><span style="font-size:13px;font-weight:700;color:${cols[i]};">${x.name}</span><span style="font-size:13px;color:#7a8fbb;">${x.avg?x.avg+' bpm (média)':'—'}</span></div>`).join('');
+    }
+  }
   const pl=suggestPlan(res.s);document.getElementById('e-plan').innerHTML='<div style="font-size:14px;font-weight:700;margin-bottom:4px;">'+pl.name+'</div><div style="font-size:13px;color:#7a8fbb;">'+pl.desc+'</div>';
-  say('Aptidão '+res.s+' de 10. '+res.l+'!');
+  say('Aptidão '+res.s+' de 10. '+res.l+'! FC máxima calibrada em '+fcMax+' batimentos por minuto.');
 }
 
 function cooperScore(dm,sx){
@@ -1426,12 +1594,12 @@ function addSeg(){
   closeSeg();renderSegs();
 }
 
-function removeSeg(id){S.segs=S.segs.filter(s=>s.id!==id);renderSegs();}
+function removeSeg(id){S.segs=S.segs.filter(s=>String(s.id)!==String(id));renderSegs();}
 
 function renderSegs(){
   const el=document.getElementById('segs-list');
   if(!S.segs.length){el.innerHTML='<div style="text-align:center;padding:14px;color:#7a8fbb;font-size:13px;">Nenhum segmento</div>';document.getElementById('tr-ready').style.display='none';return;}
-  el.innerHTML=S.segs.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:12px;background:#1e2a40;border-radius:10px;margin-bottom:8px;border-left:4px solid ${ZI[s.zone].hex};"><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:${ZI[s.zone].hex};">${ZI[s.zone].n} — ${s.label}</div><div style="font-size:12px;color:#7a8fbb;">${s.fcMin}–${s.fcMax} bpm</div></div><button onclick="removeSeg(${s.id})" style="background:none;border:none;color:#7a8fbb;font-size:18px;cursor:pointer;">✕</button></div>`).join('');
+  el.innerHTML=S.segs.map(s=>`<div style="display:flex;align-items:center;gap:10px;padding:12px;background:#1e2a40;border-radius:10px;margin-bottom:8px;border-left:4px solid ${ZI[s.zone].hex};"><div style="flex:1;"><div style="font-size:13px;font-weight:700;color:${ZI[s.zone].hex};">${ZI[s.zone].n} — ${s.label}</div><div style="font-size:12px;color:#7a8fbb;">${s.fcMin}–${s.fcMax} bpm</div></div><button onclick="removeSeg('${s.id}')" style="background:none;border:none;color:#7a8fbb;font-size:18px;cursor:pointer;">✕</button></div>`).join('');
   const td=S.segs.filter(s=>s.mode==='dist').reduce((a,s)=>a+s.dist,0);
   const tt=S.segs.filter(s=>s.mode==='time').reduce((a,s)=>a+s.dur,0);
   let sum=S.segs.length+' segmento(s)';if(td>0)sum+=' · '+td.toFixed(1)+' km';if(tt>0)sum+=' · '+tt+' min';
@@ -1441,53 +1609,81 @@ function renderSegs(){
 }
 
 // ── TREINO ATIVO ──
-let _lz=null,_lkm=0,_half=false;
+let _lz=null,_lkm=0,_lastKmSec=0,_half=false;
 
 function startTreino(){
   if(S.wu.on) S.segs.unshift(buildWarmupSeg());
   if(S.cd.on) S.segs.push(buildCooldownSeg());
-  S.active=true;S.livre=false;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
+  S.active=true;S.livre=false;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
   S._doneAnnounced=false;
-  // Reset mapa ao vivo
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   initSegLogs();
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
+  const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBarActive(0);}
-  startGPS();
+  startGPS(true);
+  reqWake();
   setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
-  say(pick(['Vamos lá, '+n()+'! Treino iniciado. Foco total agora.',''+n()+', é hora de treinar! Vai com tudo!']));
+  say('Preparar, '+n()+'... 3... 2... 1... vai! Treino iniciado, foco total!');
 }
 
 function startLivre(){
-  S.active=true;S.livre=true;S.sec=0;S.gps.dist=0;S.gps.route=[];S.gps.last=null;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_half=false;
+  S.active=true;S.livre=true;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
   S._doneAnnounced=false;
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
+  const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   document.getElementById('seg-prog').style.display='none';
-  startGPS();
+  startGPS(true);
+  reqWake();
   setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
-  say(pick(['Treino livre, '+n()+'! Escuta seu corpo.',''+n()+', corre no seu ritmo — mas não tira o pé!']));
+  say('Preparar, '+n()+'... 3... 2... 1... vai! Treino livre — corre no seu ritmo!');
+}
+
+// ── Pausar / retomar (estilo miCoach) ──
+function togglePause(){
+  if(!S.active)return;
+  if(!S.paused){
+    S.paused=true;S.pauseTs=Date.now();stopGPS();releaseWake();
+    document.getElementById('btn-pause').textContent='▶ Retomar';
+    document.getElementById('az-inst').textContent='⏸ Treino pausado';
+    say('Treino pausado, '+n()+'.');
+  } else {
+    S.pausedMs+=Date.now()-S.pauseTs;S.paused=false;
+    S.gps.last=null; // evita salto de distância pelo deslocamento durante a pausa
+    startGPS(false);reqWake();
+    document.getElementById('btn-pause').textContent='⏸ Pausar';
+    say('Treino retomado! 3... 2... 1... vai!');
+  }
 }
 
 function tick(){
-  S.sec++;
+  if(S.paused)return;
+  // Tempo real por timestamp — imune a throttling do navegador com tela bloqueada
+  const newSec=Math.floor((Date.now()-S.startTs-S.pausedMs)/1000);
+  const delta=Math.min(Math.max(newSec-S.sec,0),7200);
+  if(delta<=0)return;
+  S.sec=newSec;
   const m=Math.floor(S.sec/60),s=S.sec%60;
   document.getElementById('az-time').textContent=pad(m)+':'+pad(s);
   document.getElementById('az-dist').textContent=S.gps.dist.toFixed(2);
   if(S.fc>S.fcMax)S.fcMax=S.fc;
-  S.fcLog.push(S.fc);
   const zone=zoneFor(S.fc);
-  if(zone)S.zt[zone]++;
+  for(let k=0;k<delta;k++){
+    S.fcLog.push(S.fc);
+    if(zone)S.zt[zone]++;
+    if(!S.livre&&S.segFcLog&&S.segFcLog[S.curSegIdx])S.segFcLog[S.curSegIdx].fc.push(S.fc);
+  }
   updateZoneUI(zone);
 
   // Pace
-  if(S.gps.dist>0.01){const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);document.getElementById('az-pace').textContent=pm+':'+pad(ps);}
+  document.getElementById('az-pace').textContent=fmtPace(S.sec,S.gps.dist);
 
-  // Atualiza fase atual e acumula FC por segmento
+  // Atualiza fase atual
   if(!S.livre){
     updateSegProgress();
     calcScoreAccum();
@@ -1510,8 +1706,7 @@ function initSegLogs(){
 function updateSegProgress(){
   if(!S.segs.length) return;
 
-  // Acumula FC do segmento atual
-  if(S.segFcLog&&S.segFcLog[S.curSegIdx]) S.segFcLog[S.curSegIdx].fc.push(S.fc);
+  // (FC do segmento atual é acumulada no tick, com compensação de tela bloqueada)
 
   const seg=S.segs[S.curSegIdx];
   const isLast=S.curSegIdx===S.segs.length-1;
@@ -1571,9 +1766,11 @@ function updateSegProgress(){
 
 function renderSegBarActive(activeIdx){
   const el=document.getElementById('seg-bar');
-  // Aquecimento/relaxamento entram com peso fixo e menor no gráfico,
-  // já que misturam unidade (minutos) com as demais fases (km)
-  const weight=s=>(s.isWarmup||s.isCooldown)?0.4:(s.dist||s.dur||1);
+  // Aquecimento/relaxamento sempre bem menores no gráfico — peso relativo
+  // à média dos intervalos reais (não um valor fixo, que podia empatar com eles)
+  const normalSegs=S.segs.filter(s=>!s.isWarmup&&!s.isCooldown);
+  const avgNormal=normalSegs.length?normalSegs.reduce((a,s)=>a+(s.dist||s.dur||1),0)/normalSegs.length:1;
+  const weight=s=>(s.isWarmup||s.isCooldown)?avgNormal*0.18:(s.dist||s.dur||1);
   const tot=S.segs.reduce((a,s)=>a+weight(s),0);
   el.innerHTML=S.segs.map((s,i)=>{
     const w=(weight(s)/tot*100).toFixed(1);
@@ -1696,12 +1893,15 @@ function coachPeriodic(zone,m){
     return;
   }
 
-  // Marcadores de km — usa a distância real (sem arredondar antes), senão anuncia "2km" com 1,96km reais
+  // Splits automáticos por km (estilo miCoach): anuncia o tempo do último quilômetro
   const ki=Math.floor(S.gps.dist);
   if(ki>_lkm&&ki>0){
-    _lkm=ki;
-    const msg={1:`Primeiro quilômetro, ${n()}! Ótimo começo.`,2:`Dois quilômetros, ${n()}! Mandando bem!`,3:`Três quilômetros, ${n()}! Consistência total.`,5:`CINCO QUILÔMETROS, ${n()}! Que treino!`}[ki];
-    if(msg){say(msg);return;}
+    const splitSec=Math.max(1,S.sec-_lastKmSec);
+    _lkm=ki;_lastKmSec=S.sec;
+    const sm=Math.floor(splitSec/60),ss=splitSec%60;
+    const extra={1:' Ótimo começo!',3:' Consistência total!',5:' Cinco quilômetros, que treino!',10:' Dez quilômetros, sensacional!'}[ki]||'';
+    say(`Quilômetro ${ki}, ${n()}. Último quilômetro em ${sm} ${sm===1?'minuto':'minutos'}${ss>0?' e '+ss+' segundos':''}.${extra}`);
+    return;
   }
 }
 
@@ -1724,15 +1924,6 @@ function updateZoneUI(zone){
   }else{w.style.border='2px solid #2a3a55';zn.className='zn';zn.style.color='#7a8fbb';zn.textContent='ABAIXO DAS ZONAS';zi.textContent='Aqueça para entrar em zona Azul';zr.textContent='';}
 }
 
-function calcScore(){
-  if(!S.segs.length||!S.user)return;
-  let tot=0,wt=0;
-  S.segs.forEach(seg=>{let pts=0;const fc=S.fc;if(fc>=seg.fcMin&&fc<=seg.fcMax){const mid=(seg.fcMin+seg.fcMax)/2;pts=80+20*(1-Math.abs(fc-mid)/((seg.fcMax-seg.fcMin)/2+1));}else if(fc<seg.fcMin){pts=Math.max(10,70-(seg.fcMin-fc)*2);}else{pts=Math.max(20,75-(fc-seg.fcMax)*2);}tot+=pts*(seg.dist||seg.dur||1);wt+=(seg.dist||seg.dur||1);});
-  const sc=Math.round(tot/wt);
-  document.getElementById('az-score').textContent=sc;
-  document.getElementById('az-score-d').textContent=sc>=80?'🔥 Na zona certa!':sc>=60?'✅ Bom ritmo!':sc>=40?'⚠ Ajuste a intensidade':'📉 Fora da zona alvo';
-}
-
 function renderSegBar(){
   const el=document.getElementById('seg-bar');
   const tot=S.segs.reduce((a,s)=>a+(s.dist||1),0);
@@ -1743,7 +1934,7 @@ function finishTreino(){
   try{
     clearInterval(S.iv);
     stopGPS();
-    S.active=false;
+    S.active=false;S.paused=false;releaseWake();
 
     // Fecha modal de aviso
     try{document.getElementById('mod-done').style.display='none';}catch(e){}
@@ -1782,11 +1973,8 @@ function finishTreino(){
     console.log('Score final:',sc,'base:',base,'comp:',comp,'segsFeitos:',segsFeitos,'totalSegs:',totalSegs);
 
     const m=Math.floor(S.sec/60),s=S.sec%60;
-    let pace='—';
-    if(S.gps.dist>0.01){
-      const p=(S.sec/60)/S.gps.dist,pm=Math.floor(p),ps=Math.round((p-pm)*60);
-      pace=pm+':'+pad(ps)+' /km';
-    }
+    let pace=fmtPace(S.sec,S.gps.dist);
+    if(pace!=='—')pace+=' /km';
 
     // Garante que zt tem valores
     const zt={
@@ -1812,8 +2000,8 @@ function finishTreino(){
       dur:pad(m)+':'+pad(s),
       dist:S.gps.dist.toFixed(2)+' km',
       pace,fcMax:S.fcMax,score:sc,zt,kcal,fases,
-      route:[...S.gps.route],
-      zoneRoute:[...(S.gps.zoneRoute||[])]
+      route:downsample(S.gps.route,1200),
+      zoneRoute:downsample(S.gps.zoneRoute||[],1200)
     };
 
     // Preenche modal resultado
@@ -1893,11 +2081,13 @@ function finishTreino(){
     document.getElementById('mod-res').style.display='block';
   }
 }
-function saveWorkout(){if(S.pend){S.hist.unshift(S.pend);save();}closeRes();resetTreino();goTo('hist');}
-function closeRes(){document.getElementById('mod-res').style.display='none';}
+function saveWorkout(){if(S.pend){S.hist.unshift(S.pend);save();}closeRes();goTo('hist');}
+function closeRes(){document.getElementById('mod-res').style.display='none';resetTreino();}
 
 function resetTreino(){
-  S.segs=[];S.sec=0;S.active=false;
+  S.segs=[];S.sec=0;S.active=false;S.paused=false;S.pausedMs=0;
+  releaseWake();
+  const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   document.getElementById('tr-setup').style.display='block';
   document.getElementById('tr-active').style.display='none';
   document.getElementById('tr-ready').style.display='none';
@@ -1991,6 +2181,7 @@ function renderScoreChart(){
   const W=cv.offsetWidth||340,H=100;
   cv.width=W;cv.height=H;
   const ctx=cv.getContext('2d');
+  if(!ctx)return;
   ctx.clearRect(0,0,W,H);
 
   const data=[...S.hist].reverse(); // mais antigo primeiro
@@ -2304,7 +2495,7 @@ function renderGoals(dates){
   document.getElementById('goal-tr-cur').textContent=stats.treinos;
   document.getElementById('goal-tr-max').textContent=g.trMeta>0?`/ ${g.trMeta} treinos`:'/ — treinos';
   document.getElementById('goal-tr-bar').style.width=trPct+'%';
-  document.getElementById('goal-tr-bar').style.background=trPct>=100?'#00c853':'#00c853';
+  document.getElementById('goal-tr-bar').style.background=trPct>=100?'#00c853':'#00c85388';
 
   // Calorias da semana
   document.getElementById('goal-kcal-week').textContent=kcalWeek>0?kcalWeek+' kcal':'0 kcal';
@@ -2317,6 +2508,85 @@ function renderGoals(dates){
     document.getElementById('goal-tr-bar').style.background='#00c853';
   }
 }
+// ── PLANO PROGRESSIVO — objetivo com periodização (estilo miCoach) ──
+const PROG_GOAL_MULT={'5k':0.9,'10k':1.0,'21k':1.3};
+
+function startProgPlan(){
+  if(!S.user){toast('Faça a avaliação primeiro');return;}
+  const goal=document.getElementById('prog-goal').value;
+  const weeks=parseInt(document.getElementById('prog-weeks').value)||8;
+  const ws=getWeekDates(0)[0];
+  S.planCfg={goal,weeks,start:dateKey(ws)};
+  save();renderPlan();
+  toast('Plano de '+goal.toUpperCase()+' em '+weeks+' semanas iniciado!');
+  say('Plano progressivo iniciado, '+n()+'! Objetivo: '+(goal==='5k'?'cinco':goal==='10k'?'dez':'vinte e um')+' quilômetros em '+weeks+' semanas. Vamos juntos!');
+}
+function endProgPlan(){
+  if(!confirm('Encerrar o plano progressivo?'))return;
+  S.planCfg=null;save();renderPlan();
+}
+
+function progWeekIdx(dates){
+  if(!S.planCfg)return null;
+  const p=S.planCfg.start.split('-');
+  const start=new Date(+p[0],+p[1]-1,+p[2]);
+  return Math.round((dates[0]-start)/(7*24*3600*1000));
+}
+// Fator de volume + fase da semana: base → construção (+6%/sem),
+// recuperação a cada 4ª semana (-25%), polimento na última (-40%)
+function progFactorPhase(wi){
+  const total=S.planCfg.weeks;
+  if(wi===total-1)return{f:0.6,phase:'Polimento 🏁'};
+  if(wi%4===3)return{f:0.75,phase:'Recuperação 😌'};
+  const f=Math.min(1.5,1+0.06*wi);
+  return{f,phase:wi<2?'Base 🧱':'Construção 📈'};
+}
+function progFForDates(dates){
+  if(!S.planCfg)return null;
+  const wi=progWeekIdx(dates);
+  if(wi===null||wi<0||wi>=S.planCfg.weeks)return null;
+  return progFactorPhase(wi).f*PROG_GOAL_MULT[S.planCfg.goal];
+}
+function scaleTmpl(tmpl,f){
+  return tmpl.map(t=>{
+    if(!t)return null;
+    return{name:t.name,emoji:t.emoji,segs:t.segs.map(s=>{
+      const c={...s};
+      if(c.zone!=='blue'){
+        if(c.dist){c.dist=Math.max(0.5,Math.round(c.dist*f*10)/10);c.label=c.dist+' km';}
+        if(c.dur){c.dur=Math.max(5,Math.round(c.dur*f));c.label=c.dur+' min';}
+      }
+      return c;
+    })};
+  });
+}
+function getWeekTmpl(offset){
+  const base=getPlanTemplate(S.user.score);
+  const f=progFForDates(getWeekDates(offset));
+  return f?scaleTmpl(base,f):base;
+}
+function updateProgUI(dates){
+  const card=document.getElementById('prog-card');if(!card)return;
+  const off=document.getElementById('prog-off'),on=document.getElementById('prog-on'),ph=document.getElementById('prog-phase');
+  if(!S.planCfg){off.style.display='block';on.style.display='none';ph.textContent='';return;}
+  off.style.display='none';on.style.display='block';
+  const wi=progWeekIdx(dates),total=S.planCfg.weeks;
+  if(wi===null||wi<0){
+    document.getElementById('prog-label').textContent='Plano começa em breve';
+    document.getElementById('prog-sub').textContent='Objetivo: '+S.planCfg.goal.toUpperCase()+' · '+total+' semanas';
+    ph.textContent='';return;
+  }
+  if(wi>=total){
+    document.getElementById('prog-label').textContent='🏆 Plano concluído!';
+    document.getElementById('prog-sub').textContent='Objetivo '+S.planCfg.goal.toUpperCase()+' finalizado — refaça a avaliação e inicie um novo ciclo.';
+    ph.textContent='';return;
+  }
+  const r=progFactorPhase(wi);
+  document.getElementById('prog-label').textContent='Semana '+(wi+1)+' de '+total+' — Objetivo '+S.planCfg.goal.toUpperCase();
+  document.getElementById('prog-sub').textContent='Volume desta semana: '+Math.round(r.f*PROG_GOAL_MULT[S.planCfg.goal]*100)+'% do base';
+  ph.textContent=r.phase;
+}
+
 const DIAS=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 const DIAS_FULL=['Domingo','Segunda','Terça','Quarta','Quinta','Sexta','Sábado'];
 let _planWeekOffset=0;
@@ -2334,7 +2604,7 @@ function getWeekDates(offset){
   mon.setDate(now.getDate()-day+(offset*7));
   return Array.from({length:7},(_,i)=>{const d=new Date(mon);d.setDate(mon.getDate()+i);return d;});
 }
-function dateKey(d){return d.toISOString().split('T')[0];}
+function dateKey(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function isToday(d){const t=new Date();return d.getDate()===t.getDate()&&d.getMonth()===t.getMonth()&&d.getFullYear()===t.getFullYear();}
 function isPast(d){return d<new Date(new Date().setHours(0,0,0,0));}
 function planWeek(dir){_planWeekOffset+=dir;renderPlan();}
@@ -2345,7 +2615,8 @@ function renderPlan(){
   document.getElementById('plan-calendar').style.display='block';
   const dates=getWeekDates(_planWeekOffset);
   renderGoals(dates);
-  const tmpl=getPlanTemplate(S.user.score);
+  updateProgUI(dates);
+  const tmpl=getWeekTmpl(_planWeekOffset);
   const fmt=d=>`${d.getDate()}/${d.getMonth()+1}`;
   document.getElementById('plan-week-label').textContent=_planWeekOffset===0?'Esta semana':_planWeekOffset===-1?'Semana passada':_planWeekOffset===1?'Próxima semana':`Semana de ${fmt(dates[0])}`;
   document.getElementById('plan-week-range').textContent=`${fmt(dates[0])} a ${fmt(dates[6])}`;
@@ -2374,7 +2645,7 @@ function renderPlan(){
 
 function openPlanDay(dayIdx){
   if(!S.user)return;
-  const dates=getWeekDates(_planWeekOffset),tmpl=getPlanTemplate(S.user.score);
+  const dates=getWeekDates(_planWeekOffset),tmpl=getWeekTmpl(_planWeekOffset);
   const date=dates[dayIdx],t=tmpl[dayIdx],key=dateKey(date);
   const isDone=S.plan&&S.plan[key]&&S.plan[key].done;
   const today=isToday(date),past=isPast(date)&&!today;
@@ -2405,7 +2676,7 @@ function unmarkPlanDone(key){if(S.plan&&S.plan[key])delete S.plan[key];save();do
 
 function startPlanWorkout(dayIdx){
   if(!S.user)return;
-  const tmpl=getPlanTemplate(S.user.score),t=tmpl[dayIdx];
+  const tmpl=getWeekTmpl(_planWeekOffset),t=tmpl[dayIdx];
   if(!t)return;
   S.segs=t.segs.map((s,i)=>{const z=S.user.zones[s.zone];return{id:i,zone:s.zone,label:s.label,mode:s.dist?'dist':'time',dist:s.dist||0,dur:s.dur||0,fcMin:z.min,fcMax:z.max};});
   document.getElementById('mod-plan-day').style.display='none';
@@ -2424,6 +2695,7 @@ function renderPerfil(){
   document.getElementById('pf-fcmax').textContent=u.fcMax+' bpm';
   document.getElementById('pf-fcrep').textContent=u.fcrep+' bpm';
   document.getElementById('pf-zones').innerHTML=zonesHTML(u.zones);
+  document.getElementById('pf-karvonen').innerHTML=karvonenHTML(u);
   const l5=S.hist.slice(0,5).reverse();
   document.getElementById('pf-chart').innerHTML=l5.length?l5.map(h=>{const c=h.score>=80?'#00c853':h.score>=60?'#ffd600':'#ff3d3d';return`<div style="flex:1;background:${c};height:${Math.max(4,(h.score/100)*60)}px;border-radius:3px 3px 0 0;" title="${h.score} pts"></div>`;}).join(''):'<div style="font-size:13px;color:#7a8fbb;padding:10px;">Nenhum treino ainda</div>';
 }
@@ -2431,6 +2703,14 @@ function renderPerfil(){
 function pad(n){return String(n).padStart(2,'0');}
 function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
 function n(){return S.user?S.user.nome.split(' ')[0]:'';}
+function fmtPace(sec,km){if(!km||km<=0.01)return'—';const spk=sec/km;let pm=Math.floor(spk/60),ps=Math.round(spk%60);if(ps===60){pm++;ps=0;}return pm+':'+pad(ps);}
+function downsample(arr,max){if(!arr||arr.length<=max)return[...(arr||[])];const step=arr.length/max,out=[];for(let i=0;i<max;i++)out.push(arr[Math.floor(i*step)]);out.push(arr[arr.length-1]);return out;}
+
+// ── WAKE LOCK — mantém a tela acesa durante treino e avaliação ──
+let _wl=null;
+async function reqWake(){try{if('wakeLock' in navigator)_wl=await navigator.wakeLock.request('screen');}catch(e){}}
+function releaseWake(){try{if(_wl){_wl.release();_wl=null;}}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&((S.active&&!S.paused)||S.cOn))reqWake();});
 
 // ── INIT ──
 load();
