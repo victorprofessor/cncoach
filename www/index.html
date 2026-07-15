@@ -17,7 +17,7 @@ body{min-height:100%;background:#0b0f1a;color:#e8f0fe;font-family:-apple-system,
 /* NAV */
 .nav{position:fixed;bottom:0;left:0;right:0;z-index:999;background:#0b0f1a;border-top:1px solid #2a3a55;display:flex;padding:8px 0 28px;}
 .nb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:#3d5070;font-size:10px;cursor:pointer;padding:6px 0;}
-.nb.on{color:#3b9eff;}
+.nb.on{color:#f58220;}
 .nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;}
 
 /* SCREENS */
@@ -26,7 +26,7 @@ body{min-height:100%;background:#0b0f1a;color:#e8f0fe;font-family:-apple-system,
 
 /* HEADER */
 .hdr{position:fixed;top:0;left:0;right:0;z-index:998;background:#0b0f1a;padding:48px 18px 12px;border-bottom:1px solid #2a3a55;}
-.logo{font-size:22px;font-weight:900;}.logo b{color:#3b9eff;}
+.logo{font-size:22px;font-weight:900;color:#f58220;}.logo b{color:#1e88d2;}
 
 /* CARDS */
 .card{background:#1e2a40;border-radius:14px;border:1px solid #2a3a55;padding:16px;margin-bottom:12px;}
@@ -34,14 +34,14 @@ body{min-height:100%;background:#0b0f1a;color:#e8f0fe;font-family:-apple-system,
 
 /* BOTÕES */
 .btn{display:block;width:100%;padding:15px;border-radius:14px;border:none;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;-webkit-appearance:none;}
-.btn-b{background:#3b9eff;color:#000;}
+.btn-b{background:linear-gradient(135deg,#f58220,#f9a03f);color:#fff;}
 .btn-g{background:#00c853;color:#000;}
 .btn-r{background:#ff3d3d;color:#fff;}
 .btn-s{background:#243050;color:#e8f0fe;border:1px solid #2a3a55;}
 
 /* INPUTS */
 .inp{width:100%;background:#1a2236;border:1px solid #2a3a55;border-radius:9px;padding:13px;font-size:16px;color:#e8f0fe;margin-bottom:12px;-webkit-appearance:none;outline:none;}
-.inp:focus{border-color:#3b9eff;}
+.inp:focus{border-color:#f58220;}
 .lbl{font-size:13px;color:#7a8fbb;margin-bottom:6px;display:block;}
 select.inp{appearance:none;-webkit-appearance:none;}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
@@ -52,11 +52,11 @@ select.inp{appearance:none;-webkit-appearance:none;}
 .zi{font-size:13px;margin-top:6px;opacity:.8;}
 
 /* ZONAS */
-.zb{border-color:#3b9eff;background:rgba(59,158,255,.12);}
+.zb{border-color:#1e88d2;background:rgba(30,136,210,.12);}
 .zg{border-color:#00c853;background:rgba(0,200,83,.12);}
 .zy{border-color:#ffd600;background:rgba(255,214,0,.12);}
 .zr{border-color:#ff3d3d;background:rgba(255,61,61,.12);}
-.cb{color:#3b9eff;}.cg{color:#00c853;}.cy{color:#ffd600;}.cr{color:#ff3d3d;}
+.cb{color:#1e88d2;}.cg{color:#00c853;}.cy{color:#ffd600;}.cr{color:#ff3d3d;}
 
 /* STATS GRID */
 .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;}
@@ -102,23 +102,23 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 /* TOGGLE */
 .tog{display:flex;background:#1a2236;border-radius:9px;padding:4px;margin-bottom:14px;}
 .to{flex:1;padding:10px;text-align:center;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;color:#7a8fbb;}
-.to.on{background:#3b9eff;color:#000;}
+.to.on{background:#f58220;color:#fff;}
 
 /* STEP */
 .steps{display:flex;gap:8px;margin-bottom:18px;}
 .sd{flex:1;height:4px;border-radius:2px;background:#2a3a55;}
-.sd.on{background:#3b9eff;}
-.sd.done{background:#3b9eff;}
+.sd.on{background:#f58220;}
+.sd.done{background:#f58220;}
 
 /* COOPER */
 .coop-t{font-size:72px;font-weight:900;text-align:center;letter-spacing:-2px;line-height:1;}
 
 /* PERM BANNER */
-#perm-banner{background:#243050;border:1px solid #3b9eff;border-radius:12px;padding:14px;margin-bottom:14px;}
+#perm-banner{background:#243050;border:1px solid #1e88d2;border-radius:12px;padding:14px;margin-bottom:14px;}
 
 /* ALERT */
 .alert{padding:12px;border-radius:9px;font-size:13px;line-height:1.5;margin-bottom:12px;border:1px solid;}
-.a-i{background:rgba(59,158,255,.1);border-color:rgba(59,158,255,.3);color:#3b9eff;}
+.a-i{background:rgba(30,136,210,.1);border-color:rgba(30,136,210,.3);color:#1e88d2;}
 .a-w{background:rgba(255,214,0,.1);border-color:rgba(255,214,0,.3);color:#ffd600;}
 .a-ok{background:rgba(0,200,83,.1);border-color:rgba(0,200,83,.3);color:#00c853;}
 
@@ -152,7 +152,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 <!-- ── HOME ── -->
 <div class="pg on" id="pg-home">
   <div id="perm-banner" style="display:none;">
-    <div style="font-size:13px;font-weight:700;color:#3b9eff;margin-bottom:10px;">⚙️ Ativar recursos</div>
+    <div style="font-size:13px;font-weight:700;color:#1e88d2;margin-bottom:10px;">⚙️ Ativar recursos</div>
     <button id="btn-gps" class="btn btn-s" style="margin-bottom:8px;font-size:13px;padding:12px;" onclick="activateGPS()">📍 Ativar GPS</button>
     <button id="btn-voice" class="btn btn-s" style="font-size:13px;padding:12px;" onclick="activateVoice()">🔊 Ativar coach de voz</button>
   </div>
@@ -199,8 +199,8 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <div class="card">
       <div class="ring-wrap">
         <div class="ring">
-          <svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="58" fill="none" stroke="#2a3a55" stroke-width="10"/><circle id="h-arc" cx="70" cy="70" r="58" fill="none" stroke="#3b9eff" stroke-width="10" stroke-linecap="round" stroke-dasharray="364" stroke-dashoffset="364"/></svg>
-          <div class="ring-val"><div style="font-size:40px;font-weight:900;color:#3b9eff;" id="h-sc">0</div><div style="font-size:11px;color:#7a8fbb;">/10</div></div>
+          <svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="58" fill="none" stroke="#2a3a55" stroke-width="10"/><circle id="h-arc" cx="70" cy="70" r="58" fill="none" stroke="#1e88d2" stroke-width="10" stroke-linecap="round" stroke-dasharray="364" stroke-dashoffset="364"/></svg>
+          <div class="ring-val"><div style="font-size:40px;font-weight:900;color:#1e88d2;" id="h-sc">0</div><div style="font-size:11px;color:#7a8fbb;">/10</div></div>
         </div>
         <div style="font-size:16px;font-weight:800;margin-top:10px;" id="h-lb">—</div>
         <div style="font-size:13px;color:#7a8fbb;text-align:center;margin-top:4px;" id="h-ds">—</div>
@@ -255,7 +255,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div class="ct">Tempo Restante</div>
       <div class="coop-t" id="c-time">12:00</div>
       <div style="font-size:13px;color:#7a8fbb;margin-top:6px;" id="c-st">Pronto</div>
-      <div style="font-size:16px;font-weight:700;color:#3b9eff;margin-top:6px;" id="c-dist">0.00 km</div>
+      <div style="font-size:16px;font-weight:700;color:#1e88d2;margin-top:6px;" id="c-dist">0.00 km</div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
         <button class="btn btn-b" id="c-btn" style="width:auto;padding:10px 20px;" onclick="cStart()">▶ Iniciar</button>
         <button class="btn btn-s" id="c-rst" style="width:auto;padding:10px 20px;display:none;" onclick="cCancel()">✖ Cancelar</button>
@@ -283,8 +283,8 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <div class="card">
       <div class="ring-wrap">
         <div class="ring">
-          <svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="58" fill="none" stroke="#2a3a55" stroke-width="10"/><circle id="e-arc" cx="70" cy="70" r="58" fill="none" stroke="#3b9eff" stroke-width="10" stroke-linecap="round" stroke-dasharray="364" stroke-dashoffset="364"/></svg>
-          <div class="ring-val"><div style="font-size:40px;font-weight:900;color:#3b9eff;" id="e-sc">0</div><div style="font-size:11px;color:#7a8fbb;">/10</div></div>
+          <svg viewBox="0 0 140 140"><circle cx="70" cy="70" r="58" fill="none" stroke="#2a3a55" stroke-width="10"/><circle id="e-arc" cx="70" cy="70" r="58" fill="none" stroke="#1e88d2" stroke-width="10" stroke-linecap="round" stroke-dasharray="364" stroke-dashoffset="364"/></svg>
+          <div class="ring-val"><div style="font-size:40px;font-weight:900;color:#1e88d2;" id="e-sc">0</div><div style="font-size:11px;color:#7a8fbb;">/10</div></div>
         </div>
         <div style="font-size:16px;font-weight:800;margin-top:8px;" id="e-lb">—</div>
         <div style="font-size:13px;color:#7a8fbb;text-align:center;margin-top:4px;" id="e-ds">—</div>
@@ -401,7 +401,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div class="seg-bar" id="seg-bar"></div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
         <div style="font-size:12px;color:#7a8fbb;" id="seg-info">—</div>
-        <div style="font-size:16px;font-weight:800;color:#3b9eff;" id="seg-countdown">—</div>
+        <div style="font-size:16px;font-weight:800;color:#1e88d2;" id="seg-countdown">—</div>
       </div>
     </div>
 
@@ -412,7 +412,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
     <div class="card" style="text-align:center;">
       <div class="ct">Pontuação Parcial</div>
-      <div style="font-size:50px;font-weight:900;color:#3b9eff;" id="az-score">0</div>
+      <div style="font-size:50px;font-weight:900;color:#1e88d2;" id="az-score">0</div>
       <div style="font-size:13px;color:#7a8fbb;" id="az-score-d">Execute o treino na zona correta</div>
     </div>
 
@@ -444,7 +444,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       </div>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#3b9eff;" id="per-treinos">0</div><div style="font-size:11px;color:#7a8fbb;">treinos</div></div>
+      <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#1e88d2;" id="per-treinos">0</div><div style="font-size:11px;color:#7a8fbb;">treinos</div></div>
       <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#00c853;" id="per-km">0</div><div style="font-size:11px;color:#7a8fbb;">km</div></div>
       <div style="text-align:center;"><div style="font-size:20px;font-weight:800;color:#ffd600;" id="per-media">—</div><div style="font-size:11px;color:#7a8fbb;">pts médio</div></div>
     </div>
@@ -529,7 +529,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   <div id="pf-data" style="display:none;">
     <div class="card" style="padding:18px;">
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-        <div style="width:50px;height:50px;border-radius:50%;background:#3b9eff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#000;" id="pf-av">?</div>
+        <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#f58220,#1e88d2);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:#fff;" id="pf-av">?</div>
         <div><div style="font-size:17px;font-weight:800;" id="pf-nome">—</div><div style="font-size:13px;color:#7a8fbb;" id="pf-meta">—</div></div>
       </div>
       <div class="row2">
@@ -560,18 +560,18 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div class="ct" style="margin:0;">🎯 Metas da Semana</div>
-      <button onclick="openGoalModal()" style="background:#243050;border:1px solid #2a3a55;border-radius:6px;color:#3b9eff;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;">Editar</button>
+      <button onclick="openGoalModal()" style="background:#243050;border:1px solid #2a3a55;border-radius:6px;color:#1e88d2;font-size:12px;font-weight:700;padding:4px 10px;cursor:pointer;">Editar</button>
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
       <!-- Meta de distância -->
       <div>
         <div style="font-size:11px;color:#7a8fbb;margin-bottom:4px;">Distância</div>
         <div style="display:flex;align-items:baseline;gap:4px;">
-          <div style="font-size:22px;font-weight:900;color:#3b9eff;" id="goal-dist-cur">0</div>
+          <div style="font-size:22px;font-weight:900;color:#1e88d2;" id="goal-dist-cur">0</div>
           <div style="font-size:12px;color:#7a8fbb;" id="goal-dist-max">/ 0 km</div>
         </div>
         <div style="height:6px;background:#1a2236;border-radius:3px;margin-top:6px;overflow:hidden;">
-          <div id="goal-dist-bar" style="height:100%;background:#3b9eff;border-radius:3px;width:0%;transition:width .5s;"></div>
+          <div id="goal-dist-bar" style="height:100%;background:#1e88d2;border-radius:3px;width:0%;transition:width .5s;"></div>
         </div>
       </div>
       <!-- Meta de treinos -->
@@ -597,7 +597,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   <div class="card" style="margin-bottom:14px;" id="prog-card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div class="ct" style="margin:0;">🏁 Plano Progressivo</div>
-      <div id="prog-phase" style="font-size:12px;font-weight:700;color:#3b9eff;"></div>
+      <div id="prog-phase" style="font-size:12px;font-weight:700;color:#1e88d2;"></div>
     </div>
     <div id="prog-off">
       <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Escolha um objetivo e o app monta a progressão semana a semana: base → construção, com semanas de recuperação a cada 4 e polimento final.</div>
@@ -646,7 +646,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   <div class="card" style="margin-top:4px;">
     <div class="ct">Legenda</div>
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#3b9eff;display:inline-block;"></span>Azul</span>
+      <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#1e88d2;display:inline-block;"></span>Azul</span>
       <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#00c853;display:inline-block;"></span>Verde</span>
       <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ffd600;display:inline-block;"></span>Amarelo</span>
       <span style="font-size:12px;display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;border-radius:50%;background:#ff3d3d;display:inline-block;"></span>Vermelho</span>
@@ -791,7 +791,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 const S={user:null,segs:[],hist:[],plan:{},planCfg:null,goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],zoneRoute:[],dist:0,last:null},active:false,livre:false,paused:false,pauseTs:0,pausedMs:0,startTs:0,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cOn:false,aStarted:false,aStart:0,aPausedMs:0,aPauseTs:0,aElapsed:0,aLastSec:-1,aStage:-1,aPeak:0,aDone:false,aCalc:false,aStageLogs:[[],[],[],[]],wId:null,segT:'dist',trMode:'seg'};
 
 // ── ZONES ──
-const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#3b9eff',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
+const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#1e88d2',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
 
 function calcZones(fcMax,fcRep){const r=fcMax-fcRep;return{blue:{min:Math.round(fcRep+r*.50),max:Math.round(fcRep+r*.62)},green:{min:Math.round(fcRep+r*.62),max:Math.round(fcRep+r*.74)},yellow:{min:Math.round(fcRep+r*.74),max:Math.round(fcRep+r*.86)},red:{min:Math.round(fcRep+r*.86),max:fcMax}};}
 
@@ -1050,7 +1050,7 @@ let _liveMarker = null;    // marcador posição atual
 let _livePolyline = null;  // linha do percurso ao vivo
 let _startMarker = null;   // marcador de início
 
-const ZONE_COLORS = {blue:'#3b9eff',green:'#00c853',yellow:'#ffd600',red:'#ff3d3d'};
+const ZONE_COLORS = {blue:'#1e88d2',green:'#00c853',yellow:'#ffd600',red:'#ff3d3d'};
 
 function initMapLive(){
   if(_mapLive) return;
@@ -1097,7 +1097,7 @@ function updateMapLive(){
   // Marcador posição atual (pulsante)
   const curIcon = L.divIcon({
     className:'',
-    html:`<div style="width:16px;height:16px;border-radius:50%;background:#3b9eff;border:3px solid #fff;box-shadow:0 0 8px rgba(59,158,255,.8);animation:pulse .8s ease-in-out infinite;"></div>`,
+    html:`<div style="width:16px;height:16px;border-radius:50%;background:#1e88d2;border:3px solid #fff;box-shadow:0 0 8px rgba(30,136,210,.8);animation:pulse .8s ease-in-out infinite;"></div>`,
     iconSize:[16,16], iconAnchor:[8,8]
   });
   if(_liveMarker) _liveMarker.setLatLng([lat,lng]).setIcon(curIcon);
@@ -1115,7 +1115,7 @@ function updateMapLive(){
       const segment = r.slice(i, j+1);
       if(segment.length >= 2){
         L.polyline(segment, {
-          color: ZONE_COLORS[zone]||'#3b9eff',
+          color: ZONE_COLORS[zone]||'#1e88d2',
           weight: 4,
           opacity: 0.9,
           lineJoin:'round',
@@ -1156,7 +1156,7 @@ function initMapResult(route, zoneRoute, containerId){
       const segment = route.slice(i, j+1);
       if(segment.length >= 2){
         L.polyline(segment,{
-          color:ZONE_COLORS[zone]||'#3b9eff',
+          color:ZONE_COLORS[zone]||'#1e88d2',
           weight:4, opacity:.9,
           lineJoin:'round', lineCap:'round',
         }).addTo(_mapResult);
@@ -1354,7 +1354,7 @@ function aStageIdx(elapsed){return Math.min(3,Math.floor(elapsed/180));}
 
 function renderAStageBar(idx){
   const el=document.getElementById('a-stage-bar');if(!el)return;
-  const cols=['#3b9eff','#00c853','#ffd600','#ff3d3d'];
+  const cols=['#1e88d2','#00c853','#ffd600','#ff3d3d'];
   el.innerHTML=A_STAGES.map((s,i)=>`<div class="seg-p" style="flex:1;background:${cols[i]}${i<idx?'44':i===idx?'99':'22'};border:1px solid ${cols[i]};"></div>`).join('');
 }
 
@@ -1477,7 +1477,7 @@ function e2calc(){
   if(stCard){
     stCard.style.display=hasSt?'block':'none';
     if(hasSt){
-      const cols=['#3b9eff','#00c853','#ffd600','#ff3d3d'];
+      const cols=['#1e88d2','#00c853','#ffd600','#ff3d3d'];
       document.getElementById('e-stages').innerHTML=stages.map((x,i)=>`<div class="zrow"><span style="font-size:13px;font-weight:700;color:${cols[i]};">${x.name}</span><span style="font-size:13px;color:#7a8fbb;">${x.avg?x.avg+' bpm (média)':'—'}</span></div>`).join('');
     }
   }
@@ -2242,7 +2242,7 @@ function renderScoreChart(){
   });
 
   // Linha de pontuação
-  ctx.beginPath();ctx.strokeStyle='#3b9eff';ctx.lineWidth=2.5;ctx.lineJoin='round';
+  ctx.beginPath();ctx.strokeStyle='#1e88d2';ctx.lineWidth=2.5;ctx.lineJoin='round';
   data.forEach((h,i)=>{
     const x=pad+i*step;
     const y=H-pad-(h.score/100)*(H-pad*2);
@@ -2254,7 +2254,7 @@ function renderScoreChart(){
   ctx.beginPath();
   data.forEach((h,i)=>{const x=pad+i*step;const y=H-pad-(h.score/100)*(H-pad*2);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
   ctx.lineTo(pad+(data.length-1)*step,H-pad);ctx.lineTo(pad,H-pad);ctx.closePath();
-  ctx.fillStyle='rgba(59,158,255,.1)';ctx.fill();
+  ctx.fillStyle='rgba(30,136,210,.1)';ctx.fill();
 
   // Pontos
   data.forEach((h,i)=>{
@@ -2534,7 +2534,7 @@ function renderGoals(dates){
   document.getElementById('goal-dist-cur').textContent=stats.km.toFixed(1);
   document.getElementById('goal-dist-max').textContent=g.distMeta>0?`/ ${g.distMeta} km`:'/ — km';
   document.getElementById('goal-dist-bar').style.width=distPct+'%';
-  document.getElementById('goal-dist-bar').style.background=distPct>=100?'#00c853':'#3b9eff';
+  document.getElementById('goal-dist-bar').style.background=distPct>=100?'#00c853':'#1e88d2';
 
   // Treinos
   const trPct=g.trMeta>0?Math.min(100,Math.round(stats.treinos/g.trMeta*100)):0;
@@ -2673,13 +2673,13 @@ function renderPlan(){
   document.getElementById('plan-pct').textContent=planned?Math.round(done/planned*100)+'%':'—';
   document.getElementById('plan-calendar').innerHTML=dates.map((date,i)=>{
     const t=tmpl[i],key=dateKey(date),planData=S.plan&&S.plan[key],isDone=planData&&planData.done,isRest=!t,today=isToday(date),past=isPast(date)&&!today;
-    const border=today?'#3b9eff':isDone?'#00c853':'#2a3a55';
-    const bg=today?'rgba(59,158,255,.08)':isDone?'rgba(0,200,83,.06)':'#1e2a40';
+    const border=today?'#1e88d2':isDone?'#00c853':'#2a3a55';
+    const bg=today?'rgba(30,136,210,.08)':isDone?'rgba(0,200,83,.06)':'#1e2a40';
     const zones=t?[...new Set(t.segs.map(s=>s.zone))].map(z=>`<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ZI[z].hex};margin-right:3px;"></span>`).join(''):'';
     return`<div onclick="openPlanDay(${i})" style="display:flex;align-items:center;gap:12px;background:${bg};border:1px solid ${border};border-radius:12px;padding:14px;margin-bottom:8px;cursor:pointer;">
       <div style="text-align:center;min-width:42px;">
-        <div style="font-size:11px;color:${today?'#3b9eff':'#7a8fbb'};font-weight:700;">${DIAS[i]}</div>
-        <div style="font-size:20px;font-weight:900;color:${today?'#3b9eff':past?'#556080':'#e8f0fe'};">${date.getDate()}</div>
+        <div style="font-size:11px;color:${today?'#1e88d2':'#7a8fbb'};font-weight:700;">${DIAS[i]}</div>
+        <div style="font-size:20px;font-weight:900;color:${today?'#1e88d2':past?'#556080':'#e8f0fe'};">${date.getDate()}</div>
       </div>
       <div style="flex:1;">
         ${isRest?`<div style="font-size:13px;color:#556080;font-weight:600;">😴 Descanso</div>`:`<div style="font-size:14px;font-weight:700;${past&&!isDone?'color:#556080':''}">${t.emoji} ${t.name}</div><div style="margin-top:4px;">${zones}</div><div style="font-size:11px;color:#7a8fbb;margin-top:2px;">${t.segs.map(s=>s.label).join(' → ')}</div>`}
