@@ -258,7 +258,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
       <div style="font-size:16px;font-weight:700;color:#3b9eff;margin-top:6px;" id="c-dist">0.00 km</div>
       <div style="display:flex;gap:10px;justify-content:center;margin-top:16px;">
         <button class="btn btn-b" id="c-btn" style="width:auto;padding:10px 20px;" onclick="cStart()">▶ Iniciar</button>
-        <button class="btn btn-s" id="c-rst" style="width:auto;padding:10px 20px;display:none;" onclick="cReset()">↺ Reset</button>
+        <button class="btn btn-s" id="c-rst" style="width:auto;padding:10px 20px;display:none;" onclick="cCancel()">✖ Cancelar</button>
       </div>
     </div>
 
@@ -788,7 +788,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 
 <script>
 // ── STATE ──
-const S={user:null,segs:[],hist:[],plan:{},planCfg:null,goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],zoneRoute:[],dist:0,last:null},active:false,livre:false,paused:false,pauseTs:0,pausedMs:0,startTs:0,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cOn:false,aStarted:false,aStart:0,aPausedMs:0,aPauseTs:0,aElapsed:0,aLastSec:-1,aStage:-1,aPeak:0,aStageLogs:[[],[],[],[]],wId:null,segT:'dist',trMode:'seg'};
+const S={user:null,segs:[],hist:[],plan:{},planCfg:null,goals:{distMeta:0,trMeta:0,peso:70},templates:[],wu:{on:false,min:5},cd:{on:false,min:5},fc:70,gps:{on:false,lat:null,lng:null,route:[],zoneRoute:[],dist:0,last:null},active:false,livre:false,paused:false,pauseTs:0,pausedMs:0,startTs:0,sec:0,iv:null,fcLog:[],zt:{blue:0,green:0,yellow:0,red:0},fcMax:0,pend:null,cOn:false,aStarted:false,aStart:0,aPausedMs:0,aPauseTs:0,aElapsed:0,aLastSec:-1,aStage:-1,aPeak:0,aDone:false,aCalc:false,aStageLogs:[[],[],[],[]],wId:null,segT:'dist',trMode:'seg'};
 
 // ── ZONES ──
 const ZI={blue:{n:'Azul',l:'Recuperação / Aquecimento',cl:'zb',cc:'cb',hex:'#3b9eff',inst:'Ritmo confortável — você consegue conversar'},green:{n:'Verde',l:'Aeróbico base',cl:'zg',cc:'cg',hex:'#00c853',inst:'Esforço moderado — mantenha o ritmo'},yellow:{n:'Amarelo',l:'Limiar / Ritmo de prova',cl:'zy',cc:'cy',hex:'#ffd600',inst:'Esforço alto — concentre na respiração'},red:{n:'Vermelho',l:'Máximo esforço',cl:'zr',cc:'cr',hex:'#ff3d3d',inst:'No limite — dê tudo que você tem!'}};
@@ -813,7 +813,7 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 // ── VOICE ENGINE — Google Cloud TTS + fallback Web Speech ──
 let _voice=null,_unlocked=false,_gttsKey='';
 const _ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
-let _speakQueue=[],_speaking=false;
+let _speakQueue=[],_speaking=false,_speakGen=0;
 let _gttsVoice='pt-BR-Wavenet-A'; // feminina WaveNet
 let _audioEl=null; // elemento de áudio reutilizável (importante para iOS)
 
@@ -823,68 +823,68 @@ function loadVoice(){
   pick();speechSynthesis.onvoiceschanged=pick;
 }
 
-// Google Cloud TTS — WaveNet PT-BR (voz humana natural)
-async function speakGoogle(msg){
+// Google Cloud TTS — WaveNet PT-BR (voz humana natural) — SEMPRE prioritária.
+// Com chave configurada, a voz robótica do navegador NUNCA é usada:
+// se a API falhar num trecho, é melhor um instante de silêncio (a mensagem fica no toast).
+async function speakGoogle(msg,gen){
+  const ctl=new AbortController();
+  const to=setTimeout(()=>ctl.abort(),6000); // não deixa uma requisição pendurada travar a voz
   try{
     const clean=msg.replace(/[\u{1F300}-\u{1FAFF}]/gu,'').replace(/[📍✅⏹🔴🟡🟢🔵🏆💪📋⌚🔥🏃🚶😴⚪🔽🔼⚠]/g,'').trim();
-    if(!clean){_speaking=false;drainQueue();return;}
+    if(!clean){clearTimeout(to);if(gen===_speakGen){_speaking=false;drainQueue();}return;}
 
     const res=await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key='+_gttsKey,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
+      signal:ctl.signal,
       body:JSON.stringify({
         input:{text:clean},
         voice:{languageCode:'pt-BR',name:_gttsVoice},
-        audioConfig:{
-          audioEncoding:'MP3',
-          speakingRate:1.0,
-          pitch:0.0,
-          volumeGainDb:2.0
-        }
+        audioConfig:{audioEncoding:'MP3',speakingRate:1.0,pitch:0.0,volumeGainDb:2.0}
       })
     });
+    clearTimeout(to);
+    if(gen!==_speakGen)return; // chegou fala mais nova enquanto esta buscava — descarta
 
     if(!res.ok){
-      // Mostra o erro exato para diagnóstico
       let errMsg='';
       try{const errData=await res.json();errMsg=errData.error?errData.error.message:'';}catch(e){}
       console.error('Google TTS erro '+res.status+':',errMsg);
-      toast('⚠ Voz Google falhou ('+res.status+'): '+errMsg.slice(0,60));
-      speakBrowser(msg);
+      if(res.status===400||res.status===403)toast('⚠ Voz Google: verifique a chave da API');
+      if(gen===_speakGen){_speaking=false;drainQueue();}
       return;
     }
     const data=await res.json();
-    if(!data.audioContent){
-      toast('⚠ Google TTS sem áudio');
-      speakBrowser(msg);
-      return;
-    }
+    if(gen!==_speakGen)return;
+    if(!data.audioContent){if(gen===_speakGen){_speaking=false;drainQueue();}return;}
 
-    if(!_audioEl){_audioEl=new Audio();}
+    if('speechSynthesis' in window)speechSynthesis.cancel(); // garante que a voz do navegador cale
+    if(!_audioEl)_audioEl=new Audio();
+    _audioEl.onended=()=>{if(gen===_speakGen){_speaking=false;drainQueue();}};
+    _audioEl.onerror=()=>{if(gen===_speakGen){_speaking=false;drainQueue();}};
     _audioEl.src='data:audio/mp3;base64,'+data.audioContent;
-    _audioEl.onended=()=>{_speaking=false;drainQueue();};
-    _audioEl.onerror=()=>{console.error('Erro ao tocar áudio Google');_speaking=false;drainQueue();};
-    _speaking=true;
     await _audioEl.play();
   }catch(e){
+    clearTimeout(to);
     console.error('Google TTS exceção:',e);
-    toast('⚠ Erro: '+String(e.message||e).slice(0,60));
-    speakBrowser(msg);
+    if(gen===_speakGen){_speaking=false;drainQueue();}
   }
 }
 
-// Fallback Web Speech
-function speakBrowser(msg){
+// Fallback Web Speech — usado SOMENTE quando não há chave do Google configurada
+function speakBrowser(msg,gen){
+  if(gen!==undefined&&gen!==_speakGen)return;
   if(!('speechSynthesis' in window)||!_unlocked){_speaking=false;drainQueue();return;}
   const clean=msg.replace(/[^\w\sÀ-ú.,!?—]/g,'').trim();
   if(!clean){_speaking=false;drainQueue();return;}
   speechSynthesis.cancel();
   setTimeout(()=>{
+    if(gen!==undefined&&gen!==_speakGen)return;
     const u=new SpeechSynthesisUtterance(clean);
     u.lang='pt-BR';u.rate=_ios?.88:.86;u.pitch=1.08;u.volume=1;
     if(_voice)u.voice=_voice;
-    if(_ios){const ka=setInterval(()=>{if(!speechSynthesis.speaking){clearInterval(ka);return;}speechSynthesis.pause();speechSynthesis.resume();},8000);u.onend=()=>{clearInterval(ka);_speaking=false;drainQueue()};}
-    else u.onend=()=>{_speaking=false;drainQueue();};
+    if(_ios){const ka=setInterval(()=>{if(!speechSynthesis.speaking){clearInterval(ka);return;}speechSynthesis.pause();speechSynthesis.resume();},8000);u.onend=()=>{clearInterval(ka);if(gen===undefined||gen===_speakGen){_speaking=false;drainQueue();}};}
+    else u.onend=()=>{if(gen===undefined||gen===_speakGen){_speaking=false;drainQueue();}};
     _speaking=true;speechSynthesis.speak(u);
   },60);
 }
@@ -895,8 +895,10 @@ function drainQueue(){
 }
 
 function doSpeak(msg){
-  if(_gttsKey) speakGoogle(msg);
-  else speakBrowser(msg);
+  _speaking=true; // marca ANTES da requisição — impede duas vozes em paralelo
+  const gen=++_speakGen;
+  if(_gttsKey)speakGoogle(msg,gen);
+  else speakBrowser(msg,gen);
 }
 
 function say(msg){
@@ -1292,7 +1294,42 @@ function zonesHTML(z){return['blue','green','yellow','red'].map(k=>`<div class="
 
 // ── AVALIAÇÃO ──
 let _te=null;
-function evalReset(){['e1','e2','e3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'block':'none');['s1','s2','s3'].forEach((id,i)=>document.getElementById(id).className='sd'+(i===0?' on':''));cReset();}
+function evalReset(){
+  // Resultado já calculado: mantém a tela do resultado (Etapa 3)
+  if(S.aCalc){
+    ['e1','e2','e3'].forEach((id,i)=>document.getElementById(id).style.display=i===2?'block':'none');
+    document.getElementById('s1').className='sd done';
+    document.getElementById('s2').className='sd done';
+    document.getElementById('s3').className='sd on';
+    return;
+  }
+  // Avaliação em andamento, pausada ou concluída: restaura a Etapa 2 SEM zerar nada
+  if(S.aStarted){
+    ['e1','e2','e3'].forEach((id,i)=>document.getElementById(id).style.display=i===1?'block':'none');
+    document.getElementById('s1').className='sd done';
+    document.getElementById('s2').className='sd on';
+    document.getElementById('s3').className='sd';
+    aSetStageUI(Math.max(0,S.aStage));
+    document.getElementById('c-rst').style.display='inline-block';
+    const btn=document.getElementById('c-btn');
+    if(S.aDone){
+      btn.style.display='none';
+      document.getElementById('c-time').textContent='00:00';
+      document.getElementById('c-st').textContent='✅ Concluído!';
+      document.getElementById('e2-ok').style.display='block';
+      document.getElementById('e2-calc').style.display='block';
+    } else {
+      btn.style.display='inline-block';
+      if(S.cOn){btn.textContent='⏸ Pausar';btn.onclick=cPause;document.getElementById('c-st').textContent='Em andamento';}
+      else{btn.textContent='▶ Continuar';btn.onclick=cStart;document.getElementById('c-st').textContent='Pausado — distância preservada';}
+    }
+    return;
+  }
+  // Nenhuma avaliação em curso: estado limpo normal
+  ['e1','e2','e3'].forEach((id,i)=>document.getElementById(id).style.display=i===0?'block':'none');
+  ['s1','s2','s3'].forEach((id,i)=>document.getElementById(id).className='sd'+(i===0?' on':''));
+  cReset();
+}
 
 function e1next(){
   const nome=document.getElementById('e-nome').value.trim();
@@ -1380,7 +1417,7 @@ function cPause(){
 }
 
 function cDone(){
-  clearInterval(_aT);S.cOn=false;stopGPS();releaseWake();
+  clearInterval(_aT);S.cOn=false;S.aDone=true;stopGPS();releaseWake();
   document.getElementById('c-time').textContent='00:00';
   document.getElementById('c-st').textContent='✅ Concluído!';
   document.getElementById('c-btn').style.display='none';
@@ -1392,7 +1429,7 @@ function cDone(){
 }
 
 function cReset(){
-  clearInterval(_aT);S.cOn=false;S.aStarted=false;S.aElapsed=0;S.aPeak=0;S.aStageLogs=[[],[],[],[]];S.aStage=-1;S.aLastSec=-1;
+  clearInterval(_aT);S.cOn=false;S.aStarted=false;S.aDone=false;S.aCalc=false;S.aElapsed=0;S.aPeak=0;S.aStageLogs=[[],[],[],[]];S.aStage=-1;S.aLastSec=-1;
   stopGPS();releaseWake();
   S.gps.dist=0;S.gps.route=[];S.gps.last=null;S.gps.zoneRoute=[];
   const ct=document.getElementById('c-time');if(!ct)return;
@@ -1407,6 +1444,12 @@ function cReset(){
   aSetStageUI(0);
 }
 
+function cCancel(){
+  if(!confirm('Cancelar a avaliação? Todo o progresso (tempo, distância e FC) será perdido.'))return;
+  cReset();
+  toast('Avaliação cancelada');
+}
+
 function e2calc(){
   const mdist=parseFloat(document.getElementById('e-mdist').value)||0;
   let dist=S.gps.dist>0?S.gps.dist*1000:0;
@@ -1419,6 +1462,7 @@ function e2calc(){
   const zones=calcZones(fcMax,fcrep),res=cooperScore(dist,sexo);
   const stages=(S.aStageLogs||[]).map((log,i)=>({name:A_STAGES[i].name,avg:log&&log.length?Math.round(log.reduce((a,v)=>a+v,0)/log.length):null}));
   _te={nome:document.getElementById('e-nome').value.trim(),idade,sexo,fcrep,fcMax,fcTest,zones,score:res.s,scoreLabel:res.l,scoreDesc:res.d,dist,stages};
+  S.aCalc=true;
   document.getElementById('e2').style.display='none';document.getElementById('e3').style.display='block';
   document.getElementById('s2').className='sd done';document.getElementById('s3').className='sd on';
   document.getElementById('e-sc').textContent=res.s;
@@ -1446,7 +1490,7 @@ function cooperScore(dm,sx){
   const t=T[sx]||T.M;for(const r of t)if(dm<=r.m)return{s:r.s,l:r.l,d:r.d};return{s:5,l:'Regular',d:''};
 }
 
-function eSave(){if(!_te)return;S.user=_te;save();goTo('home');}
+function eSave(){if(!_te)return;S.user=_te;save();cReset();goTo('home');}
 
 // ── PLANO SUGERIDO ──
 function suggestPlan(sc){
@@ -1995,8 +2039,10 @@ function finishTreino(){
       return{label:seg.label||`Fase ${i+1}`,zone:seg.zone,fcMin:seg.fcMin,fcMax:seg.fcMax,avg};
     }):[];
 
+    const _ini=new Date(S.startTs||Date.now());
     S.pend={
       date:new Date().toLocaleDateString('pt-BR'),
+      time:pad(_ini.getHours())+':'+pad(_ini.getMinutes()),
       dur:pad(m)+':'+pad(s),
       dist:S.gps.dist.toFixed(2)+' km',
       pace,fcMax:S.fcMax,score:sc,zt,kcal,fases,
@@ -2129,7 +2175,7 @@ function renderHist(){
       <div class="hico" style="background:${c}22;font-size:22px;">🏃</div>
       <div style="flex:1;">
         <div style="font-size:14px;font-weight:700;">${em} ${h.score} pts · ${h.dist}</div>
-        <div style="font-size:12px;color:#7a8fbb;">${h.date} · ${h.dur} · ${h.pace}</div>
+        <div style="font-size:12px;color:#7a8fbb;">${h.date}${h.time?' às '+h.time:''} · ⏱ ${h.dur} · ${h.pace}</div>
         <div style="font-size:12px;color:#7a8fbb;">FC máx ${h.fcMax} bpm${h.kcal?' · 🔥 '+h.kcal+' kcal':''}</div>
       </div>
       <div style="color:#7a8fbb;font-size:18px;">›</div>
@@ -2236,7 +2282,7 @@ function openDetail(idx){
   document.getElementById('det-score-ring').style.borderColor=c;
   document.getElementById('det-score-ring').style.color=c;
   document.getElementById('det-label').textContent=h.score>=80?'Excelente execução!':h.score>=60?'Bom treino!':'Continue evoluindo!';
-  document.getElementById('det-date').textContent=h.date;
+  document.getElementById('det-date').textContent=h.date+(h.time?' às '+h.time:'');
   document.getElementById('det-dist').textContent=h.dist;
   document.getElementById('det-dur').textContent=h.dur;
   document.getElementById('det-pace').textContent=h.pace;
@@ -2334,9 +2380,9 @@ function deleteWorkout(){
 // ── EXPORTAR CSV ──
 function exportCSV(){
   if(!S.hist.length){toast('Nenhum treino para exportar');return;}
-  const hdr='Data,Duração,Distância,Pace,FC Máxima,Pontuação,Azul(s),Verde(s),Amarelo(s),Vermelho(s)';
+  const hdr='Data,Hora,Duração,Distância,Pace,FC Máxima,Pontuação,Azul(s),Verde(s),Amarelo(s),Vermelho(s)';
   const rows=S.hist.map(h=>[
-    h.date,h.dur,h.dist,h.pace,h.fcMax||'',h.score,
+    h.date,h.time||'',h.dur,h.dist,h.pace,h.fcMax||'',h.score,
     h.zt?h.zt.blue||0:'',h.zt?h.zt.green||0:'',h.zt?h.zt.yellow||0:'',h.zt?h.zt.red||0:''
   ].join(','));
   const csv='\uFEFF'+hdr+'\n'+rows.join('\n');
@@ -2353,7 +2399,7 @@ function exportPDF(){
   const u=S.user;
   const rows=S.hist.map((h,i)=>`
     <tr style="border-bottom:1px solid #eee;">
-      <td style="padding:6px 8px;">${h.date}</td>
+      <td style="padding:6px 8px;">${h.date}${h.time?' '+h.time:''}</td>
       <td style="padding:6px 8px;">${h.dur}</td>
       <td style="padding:6px 8px;">${h.dist}</td>
       <td style="padding:6px 8px;">${h.pace}</td>
