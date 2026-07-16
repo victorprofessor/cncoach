@@ -1190,24 +1190,98 @@ function initMapResult(route, zoneRoute, containerId){
   }catch(e){ console.warn('Leaflet result erro:',e); }
 }
 
-// ── BLE ──
-const BLE={dev:null,char:null,on:false,HR:'0000180d-0000-1000-8000-00805f9b34fb',HC:'00002a37-0000-1000-8000-00805f9b34fb'};
+// ── HR ADAPTER ──
+// Uniform interface over two backends:
+//   web    → navigator.bluetooth (Web Bluetooth, Chrome/GitHub Pages)
+//   native → @capacitor-community/bluetooth-le (Android Capacitor WebView)
+// Backend is selected by window.Capacitor?.isNativePlatform().
+const HR = (function () {
+  const SVC = '0000180d-0000-1000-8000-00805f9b34fb';
+  const CHR = '00002a37-0000-1000-8000-00805f9b34fb';
+  let _beatCb = null, _discCb = null;
 
+  // Shared 0x2A37 parser — bit 0 of flags byte selects 8 vs 16-bit HR field
+  function _parse(dv){const f=dv.getUint8(0);return (f&1)?dv.getUint16(1,true):dv.getUint8(1);}
+
+  function _isNative(){return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());}
+
+  // ── Web backend (existing navigator.bluetooth path — unchanged) ──
+  const _web = {
+    dev: null,
+    async connect(){
+      const dev=await navigator.bluetooth.requestDevice({filters:[{services:[SVC]}]});
+      const srv=await dev.gatt.connect();
+      const svc=await srv.getPrimaryService(SVC);
+      const ch=await svc.getCharacteristic(CHR);
+      await ch.startNotifications();
+      ch.addEventListener('characteristicvaluechanged',e=>{
+        const fc=_parse(e.target.value);
+        if(fc>20&&fc<250&&_beatCb)_beatCb(fc);
+      });
+      dev.addEventListener('gattserverdisconnected',()=>{_web.dev=null;if(_discCb)_discCb();});
+      _web.dev=dev;
+      return dev.name;
+    },
+    disconnect(){if(_web.dev&&_web.dev.gatt.connected)_web.dev.gatt.disconnect();_web.dev=null;}
+  };
+
+  // ── Native backend (@capacitor-community/bluetooth-le) ──
+  const _nat = {
+    id: null,
+    async connect(){
+      const {BleClient}=window.capacitorCommunityBluetoothLe;
+      await BleClient.initialize({androidNeverForLocation:true});
+      const dev=await BleClient.requestDevice({services:[SVC]});
+      _nat.id=dev.deviceId;
+      await BleClient.connect(_nat.id,()=>{_nat.id=null;if(_discCb)_discCb();});
+      await BleClient.startNotifications(_nat.id,SVC,CHR,dv=>{
+        const fc=_parse(dv);
+        if(fc>20&&fc<250&&_beatCb)_beatCb(fc);
+      });
+      return dev.name;
+    },
+    async disconnect(){
+      if(!_nat.id)return;
+      const {BleClient}=window.capacitorCommunityBluetoothLe;
+      try{await BleClient.stopNotifications(_nat.id,SVC,CHR);await BleClient.disconnect(_nat.id);}catch(e){}
+      _nat.id=null;
+    }
+  };
+
+  // Load bluetooth-le.js only on native, only once.
+  // Defines a minimal capacitorExports shim so plugin.js IIFE can call
+  // window.Capacitor.registerPlugin (already set by the native bridge).
+  async function _loadPlugin(){
+    if(window.capacitorCommunityBluetoothLe)return;
+    if(typeof capacitorExports==='undefined'){
+      window.capacitorExports={
+        registerPlugin:window.Capacitor.registerPlugin.bind(window.Capacitor),
+        WebPlugin:class WebPlugin{}
+      };
+    }
+    await new Promise((res,rej)=>{
+      const s=document.createElement('script');
+      s.src='bluetooth-le.js';s.onload=res;s.onerror=rej;
+      document.head.appendChild(s);
+    });
+  }
+
+  return {
+    isSupported(){return _isNative()||!!navigator.bluetooth;},
+    onBeat(cb){_beatCb=cb;},
+    onDisconnect(cb){_discCb=cb;},
+    async connect(){if(_isNative()){await _loadPlugin();return _nat.connect();}return _web.connect();},
+    disconnect(){if(_isNative())return _nat.disconnect();_web.disconnect();}
+  };
+})();
+
+// ── BLE ──
 async function bleConnect(){
-  if(!navigator.bluetooth){toast('Bluetooth não suportado — use Chrome Android');return;}
+  if(!HR.isSupported()){toast('Bluetooth não suportado — use Chrome Android');return;}
   try{
     toast('Procurando sensor...');
-    BLE.dev=await navigator.bluetooth.requestDevice({filters:[{services:[BLE.HR]}]});
-    const srv=await BLE.dev.gatt.connect();
-    const svc=await srv.getPrimaryService(BLE.HR);
-    BLE.char=await svc.getCharacteristic(BLE.HC);
-    await BLE.char.startNotifications();
-    BLE.char.addEventListener('characteristicvaluechanged',e=>{
-      const v=e.target.value,f=v.getUint8(0),fc=(f&1)?v.getUint16(1,true):v.getUint8(1);
-      if(fc>20&&fc<250)setFC(fc);
-    });
-    BLE.dev.addEventListener('gattserverdisconnected',()=>{
-      BLE.on=false;
+    HR.onBeat(fc=>setFC(fc));
+    HR.onDisconnect(()=>{
       const b=document.getElementById('ble-btn');if(b){b.textContent='📡 Reconectar Frequencímetro BLE';b.disabled=false;}
       document.getElementById('ble-tag').style.display='none';
       document.getElementById('active-ble-tag').style.display='none';
@@ -1215,14 +1289,14 @@ async function bleConnect(){
       toast('⚠ Sensor BLE desconectado');
       say('Atenção, '+n()+': o sensor de frequência cardíaca desconectou! Verifique o sensor ou ajuste a FC manualmente.');
     });
-    BLE.on=true;
-    document.getElementById('ble-btn').textContent='✓ '+BLE.dev.name;
+    const devName=await HR.connect();
+    document.getElementById('ble-btn').textContent='✓ '+devName;
     document.getElementById('ble-btn').disabled=true;
     document.getElementById('ble-tag').style.display='inline';
     document.getElementById('active-ble-tag').style.display='inline';
     const evt=document.getElementById('eval-ble-tag');if(evt)evt.style.display='inline';
-    say('Sensor '+BLE.dev.name+' conectado!');
-  }catch(e){if(e.name!=='NotFoundError')toast('BLE: '+e.message);}
+    say('Sensor '+devName+' conectado!');
+  }catch(e){if(e&&e.name!=='NotFoundError')toast('BLE: '+e.message);}
 }
 
 // ── FC ──

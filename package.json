@@ -1,0 +1,28 @@
+{
+  "name": "cncoach",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:android": "cp index.html www/index.html && cp node_modules/@capacitor-community/bluetooth-le/dist/plugin.js www/bluetooth-le.js && npx cap sync android"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/victorprofessor/cncoach.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/victorprofessor/cncoach/issues"
+  },
+  "homepage": "https://github.com/victorprofessor/cncoach#readme",
+  "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.2.0",
+    "@capacitor/android": "^8.4.2",
+    "@capacitor/cli": "^8.4.2",
+    "@capacitor/core": "^8.4.2"
+  }
+}
