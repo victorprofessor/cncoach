@@ -1249,15 +1249,17 @@ const HR = (function () {
   };
 
   // Load bluetooth-le.js only on native, only once.
-  // Defines a minimal capacitorExports shim so plugin.js IIFE can call
-  // window.Capacitor.registerPlugin (already set by the native bridge).
+  // plugin.js's IIFE reads the global `capacitorExports` (core.registerPlugin,
+  // core.Capacitor, core.WebPlugin), so @capacitor/core's capacitor.js — which
+  // defines that global — must be loaded first.
   async function _loadPlugin(){
     if(window.capacitorCommunityBluetoothLe)return;
     if(typeof capacitorExports==='undefined'){
-      window.capacitorExports={
-        registerPlugin:window.Capacitor.registerPlugin.bind(window.Capacitor),
-        WebPlugin:class WebPlugin{}
-      };
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='capacitor.js';s.onload=res;s.onerror=rej;
+        document.head.appendChild(s);
+      });
     }
     await new Promise((res,rej)=>{
       const s=document.createElement('script');

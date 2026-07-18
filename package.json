@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:android": "cp index.html www/index.html && cp node_modules/@capacitor-community/bluetooth-le/dist/plugin.js www/bluetooth-le.js && npx cap sync android"
+    "build:android": "cp index.html www/index.html && cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js && cp node_modules/@capacitor-community/bluetooth-le/dist/plugin.js www/bluetooth-le.js && npx cap sync android"
   },
   "repository": {
     "type": "git",
