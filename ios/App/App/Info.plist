@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>O CnCoach usa sua localização para registrar a rota, o ritmo e a distância dos seus treinos de corrida.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>O CnCoach usa Bluetooth para conectar ao seu sensor de frequência cardíaca durante os treinos.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

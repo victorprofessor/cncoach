@@ -9,6 +9,9 @@
 <title>CnCoach</title>
 <link rel="stylesheet" href="vendor/leaflet/leaflet.css"/>
 <script src="vendor/leaflet/leaflet.js"></script>
+<!-- capacitor.js define o global capacitorExports, exigido por bluetooth-le.js — a ordem importa -->
+<script src="vendor/capacitor/capacitor.js"></script>
+<script src="vendor/capacitor/bluetooth-le.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{height:100%;background:#0b0f1a;}
@@ -1193,7 +1196,50 @@ function initMapResult(route, zoneRoute, containerId){
 // ── BLE ──
 const BLE={dev:null,char:null,on:false,HR:'0000180d-0000-1000-8000-00805f9b34fb',HC:'00002a37-0000-1000-8000-00805f9b34fb'};
 
+// BleClient nativo: vendor/capacitor/bluetooth-le.js define o global capacitorCommunityBluetoothLe
+// (e exige que capacitorExports, de vendor/capacitor/capacitor.js, já exista)
+function bleNativeClient(){
+  return (window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&window.capacitorCommunityBluetoothLe)
+    ?capacitorCommunityBluetoothLe.BleClient:null;
+}
+
+function bleParseHR(v){const f=v.getUint8(0),fc=(f&1)?v.getUint16(1,true):v.getUint8(1);if(fc>20&&fc<250)setFC(fc);}
+
+function bleOnDisconnected(){
+  BLE.on=false;
+  const b=document.getElementById('ble-btn');if(b){b.textContent='📡 Reconectar Frequencímetro BLE';b.disabled=false;}
+  document.getElementById('ble-tag').style.display='none';
+  document.getElementById('active-ble-tag').style.display='none';
+  const evb=document.getElementById('eval-ble-tag');if(evb)evb.style.display='none';
+  toast('⚠ Sensor BLE desconectado');
+  say('Atenção, '+n()+': o sensor de frequência cardíaca desconectou! Verifique o sensor ou ajuste a FC manualmente.');
+}
+
+function bleOnConnected(name){
+  BLE.on=true;
+  document.getElementById('ble-btn').textContent='✓ '+name;
+  document.getElementById('ble-btn').disabled=true;
+  document.getElementById('ble-tag').style.display='inline';
+  document.getElementById('active-ble-tag').style.display='inline';
+  const evt=document.getElementById('eval-ble-tag');if(evt)evt.style.display='inline';
+  say('Sensor '+name+' conectado!');
+}
+
 async function bleConnect(){
+  const cli=bleNativeClient();
+  if(cli){ // app nativo (Android/iOS): plugin @capacitor-community/bluetooth-le
+    try{
+      toast('Procurando sensor...');
+      await cli.initialize({androidNeverForLocation:true});
+      const dev=await cli.requestDevice({services:[BLE.HR]});
+      await cli.connect(dev.deviceId,()=>bleOnDisconnected());
+      await cli.startNotifications(dev.deviceId,BLE.HR,BLE.HC,v=>bleParseHR(v));
+      BLE.dev=dev;
+      bleOnConnected(dev.name||'Sensor BLE');
+    }catch(e){toast('BLE: '+(e.message||e));}
+    return;
+  }
+  // fallback web (Web Bluetooth) — GitHub Pages / Chrome Android
   if(!navigator.bluetooth){toast('Bluetooth não suportado — use Chrome Android');return;}
   try{
     toast('Procurando sensor...');
@@ -1202,26 +1248,9 @@ async function bleConnect(){
     const svc=await srv.getPrimaryService(BLE.HR);
     BLE.char=await svc.getCharacteristic(BLE.HC);
     await BLE.char.startNotifications();
-    BLE.char.addEventListener('characteristicvaluechanged',e=>{
-      const v=e.target.value,f=v.getUint8(0),fc=(f&1)?v.getUint16(1,true):v.getUint8(1);
-      if(fc>20&&fc<250)setFC(fc);
-    });
-    BLE.dev.addEventListener('gattserverdisconnected',()=>{
-      BLE.on=false;
-      const b=document.getElementById('ble-btn');if(b){b.textContent='📡 Reconectar Frequencímetro BLE';b.disabled=false;}
-      document.getElementById('ble-tag').style.display='none';
-      document.getElementById('active-ble-tag').style.display='none';
-      const evb=document.getElementById('eval-ble-tag');if(evb)evb.style.display='none';
-      toast('⚠ Sensor BLE desconectado');
-      say('Atenção, '+n()+': o sensor de frequência cardíaca desconectou! Verifique o sensor ou ajuste a FC manualmente.');
-    });
-    BLE.on=true;
-    document.getElementById('ble-btn').textContent='✓ '+BLE.dev.name;
-    document.getElementById('ble-btn').disabled=true;
-    document.getElementById('ble-tag').style.display='inline';
-    document.getElementById('active-ble-tag').style.display='inline';
-    const evt=document.getElementById('eval-ble-tag');if(evt)evt.style.display='inline';
-    say('Sensor '+BLE.dev.name+' conectado!');
+    BLE.char.addEventListener('characteristicvaluechanged',e=>bleParseHR(e.target.value));
+    BLE.dev.addEventListener('gattserverdisconnected',()=>bleOnDisconnected());
+    bleOnConnected(BLE.dev.name);
   }catch(e){if(e.name!=='NotFoundError')toast('BLE: '+e.message);}
 }
 

@@ -4,7 +4,10 @@
   "description": "CnCoach - treinador de corrida por zonas de FC",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "copy:capacitor": "node -e \"const fs=require('fs');fs.mkdirSync('www/vendor/capacitor',{recursive:true});fs.copyFileSync('node_modules/@capacitor/core/dist/capacitor.js','www/vendor/capacitor/capacitor.js');fs.copyFileSync('node_modules/@capacitor-community/bluetooth-le/dist/plugin.js','www/vendor/capacitor/bluetooth-le.js');\"",
+    "build:android": "npm run copy:capacitor && npx cap sync android",
+    "build:ios": "npm run copy:capacitor && npx cap sync ios"
   },
   "repository": {
     "type": "git",
@@ -14,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
     "@capacitor/core": "^8.4.2",
