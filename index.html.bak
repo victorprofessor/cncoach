@@ -21,7 +21,7 @@ body{min-height:100%;background:#0b0f1a;color:#e8f0fe;font-family:-apple-system,
 .nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;}
 
 /* SCREENS */
-.pg{display:none;padding:var(--hdr-h,92px) 16px 20px;}
+.pg{display:none;padding:60px 16px 20px;}
 .pg.on{display:block;}
 
 /* HEADER */
@@ -131,6 +131,42 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
 .zdot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px;}
 @keyframes pulse{0%,100%{transform:scale(1);opacity:1;}50%{transform:scale(1.35);opacity:.75;}}
 </style>
+  <!-- ===== Firebase + TTS (proxy) ===== -->
+  <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/12.15.0/firebase-functions-compat.js"></script>
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyAr-CqUI1B0ssvtiRSHNa4z2dRAryhknaA",
+      authDomain: "appandroid-6212b.firebaseapp.com",
+      projectId: "appandroid-6212b",
+      storageBucket: "appandroid-6212b.firebasestorage.app",
+      messagingSenderId: "157761587503",
+      appId: "1:157761587503:web:f092ad5be9cc3bf98039da"
+    };
+    firebase.initializeApp(firebaseConfig);
+
+    firebase.auth().signInAnonymously().catch((e) => {
+      console.error("Falha no login anônimo:", e);
+    });
+
+    async function falarTTS(texto, opts = {}) {
+      if (!firebase.auth().currentUser) {
+        await new Promise((resolve) => {
+          const unsub = firebase.auth().onAuthStateChanged((u) => {
+            if (u) { unsub(); resolve(); }
+          });
+        });
+      }
+      const fn = firebase.app().functions("southamerica-east1")
+        .httpsCallable("synthesizeSpeech");
+      const res = await fn({ text: texto, ...opts });
+      const audio = new Audio("data:audio/mp3;base64," + res.data.audioContent);
+      await audio.play();
+      return audio;
+    }
+  </script>
+  <!-- ===== fim Firebase + TTS ===== -->
 </head>
 <body>
 
@@ -158,17 +194,17 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
   </div>
 
   <!-- Card Google TTS -->
-  <div class="card" style="margin-bottom:14px;">
+  <div class="card" id="gtts-card" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
       <div style="font-size:13px;font-weight:700;">🎙️ Voz Neural — Google Cloud</div>
       <div id="gtts-dot" style="width:8px;height:8px;border-radius:50%;background:#3d5070;"></div>
     </div>
-    <div id="gtts-inactive" style="display:none;">
+    <div id="gtts-inactive">
       <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Voz humana WaveNet em português. Cole a chave de API do Google Cloud (Text-to-Speech).</div>
       <input class="inp" type="password" id="gtts-key-input" placeholder="AIza..." autocomplete="off" style="margin-bottom:8px;">
       <button class="btn btn-b" style="font-size:14px;padding:12px;margin-bottom:0;" onclick="saveGttsKey()">Ativar voz neural</button>
     </div>
-    <div id="gtts-active">
+    <div id="gtts-active" style="display:none;">
       <div style="font-size:13px;color:#00c853;font-weight:700;margin-bottom:10px;">✅ Voz Google ativa</div>
       <div style="font-size:12px;color:#7a8fbb;margin-bottom:6px;">Escolha a voz:</div>
       <select class="inp" id="gtts-voice-sel" onchange="setGttsVoice(this.value)" style="margin-bottom:10px;">
@@ -184,7 +220,7 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
         </optgroup>
       </select>
       <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:8px;" onclick="testGttsVoice()">▶ Testar voz</button>
-      <button class="btn btn-s" style="font-size:12px;padding:8px;margin-bottom:0;" onclick="removeGttsKey()" hidden>Remover chave</button>
+      <button class="btn btn-s" style="font-size:12px;padding:8px;margin-bottom:0;" onclick="removeGttsKey()">Remover chave</button>
     </div>
   </div>
 
@@ -797,10 +833,17 @@ function calcZones(fcMax,fcRep){const r=fcMax-fcRep;return{blue:{min:Math.round(
 
 function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.min)return'red';if(fc>=z.yellow.min)return'yellow';if(fc>=z.green.min)return'green';if(fc>=z.blue.min)return'blue';return null;}
 
+// ── PLATFORM ──
+function _isNative(){return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());}
+
 // ── STORAGE ──
 function load(){
   try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.planCfg=d.pc||null;S.goals=d.g||{distMeta:0,trMeta:0,peso:70};S.templates=d.t||[];S.wu=d.wu||{on:false,min:5};S.cd=d.cd||{on:false,min:5};}catch(e){}
-  try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
+  if(_isNative()){
+    _gttsKey=_NATIVE_TTS_KEY;_unlocked=true;
+  }else{
+    try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
+  }
   try{const v=localStorage.getItem('cnc_gtts_voice');if(v)_gttsVoice=v;}catch(e){}
 }
 function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},pc:S.planCfg||null,g:S.goals||{},t:S.templates||[],wu:S.wu||{on:false,min:5},cd:S.cd||{on:false,min:5}}));}catch(e){toast('⚠ Armazenamento cheio — exporte o histórico e exclua treinos antigos');}}
@@ -811,7 +854,8 @@ function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t
 
 // ── VOICE (Web Speech API) ──
 // ── VOICE ENGINE — Google Cloud TTS + fallback Web Speech ──
-let _voice=null,_unlocked=true,_gttsKey='',_coachOn=false;
+let _voice=null,_unlocked=false,_gttsKey='';
+const _NATIVE_TTS_KEY='AIzaSyChGI6Njzd8SmE67oupzvmRIUHPOUoSZy0'; // chave Google TTS embutida — só usada quando _isNative()
 const _ios=/iPad|iPhone|iPod/.test(navigator.userAgent);
 let _speakQueue=[],_speaking=false,_speakGen=0;
 let _gttsVoice='pt-BR-Wavenet-A'; // feminina WaveNet
@@ -827,31 +871,50 @@ function loadVoice(){
 // Com chave configurada, a voz robótica do navegador NUNCA é usada:
 // se a API falhar num trecho, é melhor um instante de silêncio (a mensagem fica no toast).
 async function speakGoogle(msg,gen){
-  const to=setTimeout(()=>{if(gen===_speakGen){_speaking=false;drainQueue();}},15000);
+  const ctl=new AbortController();
+  const to=setTimeout(()=>ctl.abort(),6000); // não deixa uma requisição pendurada travar a voz
   try{
-    const clean=msg.replace(/[\u{1F300}-\u{1FAFF}]/gu,'').replace(/[\u2600-\u27BF]/g,'').trim();
+    const clean=msg.replace(/[\u{1F300}-\u{1FAFF}]/gu,'').replace(/[📍✅⏹🔴🟡🟢🔵🏆💪📋⌚🔥🏃🚶😴⚪🔽🔼⚠]/g,'').trim();
     if(!clean){clearTimeout(to);if(gen===_speakGen){_speaking=false;drainQueue();}return;}
 
-    // Proxy Firebase (Cloud Function) — sem chave, autenticado por login anônimo
-    const voz=(typeof _gttsVoice!=='undefined'&&_gttsVoice)?_gttsVoice:'pt-BR-Wavenet-A';
-    const audioB64=await window.ttsProxy(clean,voz);
-
+    const res=await fetch('https://texttospeech.googleapis.com/v1/text:synthesize?key='+_gttsKey,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      signal:ctl.signal,
+      body:JSON.stringify({
+        input:{text:clean},
+        voice:{languageCode:'pt-BR',name:_gttsVoice},
+        audioConfig:{audioEncoding:'MP3',speakingRate:1.0,pitch:0.0,volumeGainDb:2.0}
+      })
+    });
     clearTimeout(to);
-    if(gen!==_speakGen)return;
-    if(!audioB64){if(gen===_speakGen){_speaking=false;drainQueue();}return;}
+    if(gen!==_speakGen)return; // chegou fala mais nova enquanto esta buscava — descarta
 
-    if('speechSynthesis' in window)speechSynthesis.cancel();
+    if(!res.ok){
+      let errMsg='';
+      try{const errData=await res.json();errMsg=errData.error?errData.error.message:'';}catch(e){}
+      console.error('Google TTS erro '+res.status+':',errMsg);
+      if(res.status===400||res.status===403)toast('⚠ Voz Google: verifique a chave da API');
+      if(gen===_speakGen){_speaking=false;drainQueue();}
+      return;
+    }
+    const data=await res.json();
+    if(gen!==_speakGen)return;
+    if(!data.audioContent){if(gen===_speakGen){_speaking=false;drainQueue();}return;}
+
+    if('speechSynthesis' in window)speechSynthesis.cancel(); // garante que a voz do navegador cale
     if(!_audioEl)_audioEl=new Audio();
     _audioEl.onended=()=>{if(gen===_speakGen){_speaking=false;drainQueue();}};
     _audioEl.onerror=()=>{if(gen===_speakGen){_speaking=false;drainQueue();}};
-    _audioEl.src='data:audio/mp3;base64,'+audioB64;
+    _audioEl.src='data:audio/mp3;base64,'+data.audioContent;
     await _audioEl.play();
   }catch(e){
     clearTimeout(to);
-    console.error('TTS proxy exceção:',e);
+    console.error('Google TTS exceção:',e);
     if(gen===_speakGen){_speaking=false;drainQueue();}
   }
 }
+
 // Fallback Web Speech — usado SOMENTE quando não há chave do Google configurada
 function speakBrowser(msg,gen){
   if(gen!==undefined&&gen!==_speakGen)return;
@@ -878,13 +941,13 @@ function drainQueue(){
 function doSpeak(msg){
   _speaking=true; // marca ANTES da requisição — impede duas vozes em paralelo
   const gen=++_speakGen;
-  if(true)speakGoogle(msg,gen);
+  if(_gttsKey)speakGoogle(msg,gen);
   else speakBrowser(msg,gen);
 }
 
-function say(msg,force){
+function say(msg){
   toast(msg);
-  if(!_coachOn&&!force)return;
+  if(!_unlocked&&!_gttsKey)return;
   if(_speakQueue.length>1)_speakQueue=[_speakQueue[_speakQueue.length-1]];
   if(_speaking){_speakQueue.push(msg);return;}
   doSpeak(msg);
@@ -893,7 +956,7 @@ function say(msg,force){
 function activateVoice(){
   document.getElementById('btn-voice').style.display='none';
   checkBanner();
-  _unlocked=true;_coachOn=true;
+  _unlocked=true;
   // Destrava áudio no iOS — cria e toca elemento silencioso dentro do gesto
   if(!_audioEl)_audioEl=new Audio();
   _audioEl.src='data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAACcQCA';
@@ -911,7 +974,12 @@ function activateVoice(){
 
 // ── UI Google TTS ──
 function updateGttsUI(){
-  const active=true;
+  const card=document.getElementById('gtts-card');
+  if(_isNative()){
+    if(card)card.style.display='none';
+    return;
+  }
+  const active=!!_gttsKey;
   const dot=document.getElementById('gtts-dot');
   const inact=document.getElementById('gtts-inactive');
   const act=document.getElementById('gtts-active');
@@ -964,7 +1032,7 @@ function testGttsVoice(){
     'Oi! Sou '+coachWord()+'. Vamos correr juntos hoje?',
     'Bora treinar! Estou aqui pra te motivar do início ao fim.',
     'Preparado? Hoje é dia de superar seus limites!'
-  ]),true);
+  ]));
 }
 
 // Compat
@@ -1183,8 +1251,6 @@ const HR = (function () {
 
   // Shared 0x2A37 parser — bit 0 of flags byte selects 8 vs 16-bit HR field
   function _parse(dv){const f=dv.getUint8(0);return (f&1)?dv.getUint16(1,true):dv.getUint8(1);}
-
-  function _isNative(){return !!(window.Capacitor&&window.Capacitor.isNativePlatform&&window.Capacitor.isNativePlatform());}
 
   // ── Web backend (existing navigator.bluetooth path — unchanged) ──
   const _web = {
@@ -1710,38 +1776,37 @@ function renderSegs(){
 }
 
 // ── TREINO ATIVO ──
-let _lz=null,_lkm=0,_lastKmSec=0,_half=false,_lastFcCheckSec=0,_prevFcRef=0;
+let _lz=null,_lkm=0,_lastKmSec=0,_half=false;
 
 function startTreino(){
   if(S.wu.on) S.segs.unshift(buildWarmupSeg());
   if(S.cd.on) S.segs.push(buildCooldownSeg());
   S.active=true;S.livre=false;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;_lastFcCheckSec=0;_prevFcRef=0;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
   S._doneAnnounced=false;
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   initSegLogs();
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBarActive(0);}
-  document.getElementById('map-live').style.display=S.gps.on?'':'none';
-  if(S.gps.on){startGPS(true);setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);}
-  else if(S.segs.some(s=>s.mode==='dist'))toast('GPS desativado — fases por distância não avançam');
+  startGPS(true);
   reqWake();
+  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
   say('Preparar, '+n()+'... 3... 2... 1... vai! Treino iniciado, foco total!');
 }
 
 function startLivre(){
   S.active=true;S.livre=true;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;_lastFcCheckSec=0;_prevFcRef=0;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
   S._doneAnnounced=false;
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   document.getElementById('seg-prog').style.display='none';
-  document.getElementById('map-live').style.display=S.gps.on?'':'none';
-  if(S.gps.on){startGPS(true);setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);}
+  startGPS(true);
   reqWake();
+  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
   say('Preparar, '+n()+'... 3... 2... 1... vai! Treino livre — corre no seu ritmo!');
 }
@@ -1757,7 +1822,7 @@ function togglePause(){
   } else {
     S.pausedMs+=Date.now()-S.pauseTs;S.paused=false;
     S.gps.last=null; // evita salto de distância pelo deslocamento durante a pausa
-    if(S.gps.on)startGPS(false);reqWake();
+    startGPS(false);reqWake();
     document.getElementById('btn-pause').textContent='⏸ Pausar';
     say('Treino retomado! 3... 2... 1... vai!');
   }
@@ -1792,7 +1857,8 @@ function tick(){
   }
 
   // Voice coaching
-  coachVoice(zone,m);
+  if(zone&&zone!==_lz){say(pick(COACH_Z[zone])(n()));_lz=zone;}
+  else coachPeriodic(zone,m);
 }
 
 // ── Rastreia FC por segmento para pontuação precisa ──
@@ -1832,7 +1898,6 @@ function updateSegProgress(){
     S.curSegIdx++;
     S.segStartSec=S.sec;
     S.segStartDist=S.gps.dist;
-    _lastFcCheckSec=S.sec-20;_lz='__nova_fase__';
   } else if(segDone&&isLast&&!S._doneAnnounced){
     S._doneAnnounced=true;
     say(`${n()}, você completou todas as fases! Continue correndo ou encerre o treino.`);
@@ -1936,92 +2001,74 @@ const COACH_Z={
   red:[n=>`ZONA VERMELHA, ${n}! Dá TUDO agora!`,n=>`${n}, vermelho! Esquece o cansaço — vai!`,n=>`MÁXIMO, ${n}! Você treinou pra esse momento!`],
 };
 
-function zoneRank(z){return({blue:0,green:1,yellow:2,red:3})[z]!==undefined?({blue:0,green:1,yellow:2,red:3})[z]:-1;}
+function coachPeriodic(zone,m){
+  const NEAR_BPM=5; // diferença considerada "perto do alvo"
 
-function coachVoice(zone,m){
-  // 1) Split de km — prioridade máxima (só com GPS ativo)
+  // A cada 30s: verifica FC vs zona alvo do segmento atual
+  // (aquecimento/relaxamento não exigem FC — pula esse aviso)
+  if(S.sec>30&&S.sec%30===0&&S.segs.length){
+    const idx=S.curSegIdx;
+    const seg=S.segs[idx];
+    if(seg&&!seg.isWarmup&&!seg.isCooldown){
+      const fc=S.fc;
+      const segName=seg.label||`Fase ${idx+1}`;
+      if(fc>=seg.fcMin&&fc<=seg.fcMax){
+        // Na zona — parabeniza
+        say(pick([
+          `${n()}, FC perfeita na fase "${segName}"! Mantém esse ritmo.`,
+          `Isso aí, ${n()}! Você tá exatamente na zona certa. Continua!`,
+          `FC no alvo, ${n()}! ${fc} bpm — perfeito para essa fase.`,
+        ]));
+      } else if(fc<seg.fcMin){
+        const diff=seg.fcMin-fc;
+        if(diff<=NEAR_BPM){
+          // Perto do alvo — sem alarde
+          say(pick([
+            `${n()}, tá quase lá! Só ${diff} bpm pra entrar na fase "${segName}".`,
+            `Perto do alvo, ${n()}! Sobe só um pouquinho o ritmo.`,
+          ]));
+        } else {
+          say(pick([
+            `${n()}, aumenta o ritmo! FC atual ${fc}, precisa chegar em ${seg.fcMin} bpm para a fase "${segName}".`,
+            `Acelera, ${n()}! Você tá em ${fc} bpm, o alvo é ${seg.fcMin}–${seg.fcMax} bpm.`,
+            `Falta esforço, ${n()}! Sobe a FC para pelo menos ${seg.fcMin} bpm.`,
+          ]));
+        }
+      } else {
+        const diff=fc-seg.fcMax;
+        if(diff<=NEAR_BPM){
+          // Levemente acima — sem alarde
+          say(pick([
+            `${n()}, tá quase no alvo! Só ${diff} bpm acima — segura leve o ritmo.`,
+            `Perto do ideal, ${n()}! FC de ${fc}, é só ajeitar um pouco.`,
+          ]));
+        } else {
+          say(pick([
+            `${n()}, diminui o ritmo! FC em ${fc}, o alvo da fase "${segName}" é ${seg.fcMax} bpm no máximo.`,
+            `Segura, ${n()}! Você tá em ${fc} bpm, acima do planejado. Traz pra ${seg.fcMax} bpm.`,
+            `Reduz a intensidade, ${n()}! FC de ${fc} tá alta demais para essa fase.`,
+          ]));
+        }
+      }
+      return;
+    }
+  }
+
+  // A cada 2 minutos: update geral
+  if(S.sec>60&&S.sec%120===0){
+    say(pick([`${n()}, ${m} minutos de treino. Continua assim!`,`Tá ótimo, ${n()}. ${m} minutos. Mantém o foco.`]));
+    return;
+  }
+
+  // Splits automáticos por km (estilo miCoach): anuncia o tempo do último quilômetro
   const ki=Math.floor(S.gps.dist);
-  if(S.gps.on&&ki>_lkm&&ki>0){
+  if(ki>_lkm&&ki>0){
     const splitSec=Math.max(1,S.sec-_lastKmSec);
     _lkm=ki;_lastKmSec=S.sec;
     const sm=Math.floor(splitSec/60),ss=splitSec%60;
     const extra={1:' Ótimo começo!',3:' Consistência total!',5:' Cinco quilômetros, que treino!',10:' Dez quilômetros, sensacional!'}[ki]||'';
     say(`Quilômetro ${ki}, ${n()}. Último quilômetro em ${sm} ${sm===1?'minuto':'minutos'}${ss>0?' e '+ss+' segundos':''}.${extra}`);
-    _lz=zone;
     return;
-  }
-
-  // Treino livre (sem fases): coach por zonas original
-  if(S.livre||!S.segs.length){
-    if(zone&&zone!==_lz)say(pick(COACH_Z[zone])(n()));
-    _lz=zone;
-    return;
-  }
-
-  const seg=S.segs[S.curSegIdx];
-  if(!seg){_lz=zone;return;}
-  let lastNormal=-1;for(let i=0;i<S.segs.length;i++)if(!S.segs[i].isCooldown)lastNormal=i;
-  const isLastNormal=S.curSegIdx===lastNormal;
-
-  // Aquecimento: sem alvo de FC, sem cobrança — silêncio (splits ainda tocam)
-  if(seg.isWarmup){_lz=zone;return;}
-
-  // Relaxamento: só pede pra desacelerar enquanto a FC estiver alta
-  if(seg.isCooldown){
-    if(S.sec-_lastFcCheckSec>=45){
-      _lastFcCheckSec=S.sec;
-      if(zoneRank(zone)>=1)say(pick([
-        `${n()}, hora de relaxar. Diminui o ritmo pra baixar a FC.`,
-        `Vai desacelerando, ${n()}. Deixa a FC descer aos poucos.`,
-      ]));
-    }
-    _lz=zone;
-    return;
-  }
-
-  const fc=S.fc,inZone=fc>=seg.fcMin&&fc<=seg.fcMax;
-  const segName=seg.label||`Fase ${S.curSegIdx+1}`;
-  const trend=_prevFcRef?(fc>_prevFcRef+2?'subiu':(fc<_prevFcRef-2?'baixou':'')):'';
-
-  // 2) Mudou de zona (ou de fase): reação imediata, SEMPRE relativa ao alvo
-  if(zone!==_lz){
-    _lz=zone;_prevFcRef=fc;_lastFcCheckSec=S.sec;
-    if(inZone){
-      say(pick(isLastNormal?[
-        `É isso, ${n()}! FC no alvo na reta final. Segura até o fim!`,
-        `${n()}, entrou na zona certa! Agora é fechar com tudo!`,
-      ]:[
-        `Perfeito, ${n()}! Entrou na fase "${segName}". Mantém esse ritmo.`,
-        `É isso, ${n()}! FC no alvo da fase. Continua assim.`,
-      ]));
-    } else if(fc>seg.fcMax){
-      say(`${n()}, FC subiu pra ${fc}. Baixa ${fc-seg.fcMax} bpm pra voltar ao alvo da fase "${segName}".`);
-    } else {
-      say(`${n()}, FC em ${fc}. Sobe ${seg.fcMin-fc} bpm pra entrar na fase "${segName}".`);
-    }
-    return;
-  }
-
-  // 3) Checagem periódica a cada 30s reais (imune a pulos do timer)
-  if(S.sec-_lastFcCheckSec>=30){
-    _lastFcCheckSec=S.sec;
-    const t=trend?` A FC ${trend} pra ${fc}.`:'';
-    if(inZone){
-      say(pick(isLastNormal?[
-        `Reta final, ${n()}! FC perfeita. Dá o seu melhor até o fim!`,
-        `${n()}, tá voando! Últimos momentos — capricha!`,
-      ]:[
-        `${n()}, FC perfeita na fase "${segName}"! Mantém.`,
-        `FC no alvo, ${n()}! ${fc} bpm — exatamente onde precisa.`,
-      ]));
-    } else if(fc>seg.fcMax){
-      const diff=fc-seg.fcMax;
-      say(diff<=5?`${n()}, só ${diff} bpm acima do alvo.${t} Alivia um pouco o ritmo.`:`${n()}, baixa ${diff} bpm.${t} O alvo da fase "${segName}" é ${seg.fcMin} a ${seg.fcMax}.`);
-    } else {
-      const diff=seg.fcMin-fc;
-      say(diff<=5?`${n()}, quase lá! Só ${diff} bpm pra entrar na fase "${segName}".`:`${n()}, sobe ${diff} bpm.${t} O alvo da fase "${segName}" é ${seg.fcMin} a ${seg.fcMax}.`);
-    }
-    _prevFcRef=fc;
   }
 }
 
@@ -2837,16 +2884,6 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 // ── INIT ──
 load();
 loadVoice();
-function fitHeader(){
-  const h=document.querySelector('.hdr');
-  if(!h)return;
-  document.documentElement.style.setProperty('--hdr-h',(h.offsetHeight+16)+'px');
-}
-fitHeader();
-setTimeout(fitHeader,300);
-window.addEventListener('resize',fitHeader);
-window.addEventListener('orientationchange',()=>setTimeout(fitHeader,300));
-
 renderHome();
 renderSegs();
 syncWuCdUI();
@@ -2855,12 +2892,8 @@ try{const sel=document.getElementById('gtts-voice-sel');if(sel)sel.value=_gttsVo
 
 // Banner de permissões
 if(navigator.geolocation)document.getElementById('btn-gps').style.display='block';
-document.getElementById('btn-voice').style.display='block';
-document.getElementById('perm-banner').style.display='block';
+if('speechSynthesis' in window)document.getElementById('btn-voice').style.display='block';
+if(navigator.geolocation||'speechSynthesis' in window)document.getElementById('perm-banner').style.display='block';
 </script>
-<script src="firebase-app-compat.js"></script>
-<script src="firebase-auth-compat.js"></script>
-<script src="firebase-functions-compat.js"></script>
-<script src="firebase-tts.js"></script>
 </body>
 </html>

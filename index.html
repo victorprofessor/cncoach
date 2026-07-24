@@ -21,7 +21,7 @@ body{min-height:100%;background:#0b0f1a;color:#e8f0fe;font-family:-apple-system,
 .nb svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:2;}
 
 /* SCREENS */
-.pg{display:none;padding:60px 16px 20px;}
+.pg{display:none;padding:var(--hdr-h,92px) 16px 20px;}
 .pg.on{display:block;}
 
 /* HEADER */
@@ -2839,6 +2839,16 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 // ── INIT ──
 load();
 loadVoice();
+function fitHeader(){
+  const h=document.querySelector('.hdr');
+  if(!h)return;
+  document.documentElement.style.setProperty('--hdr-h',(h.offsetHeight+16)+'px');
+}
+fitHeader();
+setTimeout(fitHeader,300);
+window.addEventListener('resize',fitHeader);
+window.addEventListener('orientationchange',()=>setTimeout(fitHeader,300));
+
 renderHome();
 renderSegs();
 syncWuCdUI();

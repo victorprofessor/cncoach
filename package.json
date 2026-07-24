@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build:android": "cp app-index.html www/index.html && cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js && cp node_modules/@capacitor-community/bluetooth-le/dist/plugin.js www/bluetooth-le.js && npx cap sync android"
+    "build:android": "cp app-index.html www/index.html && cp node_modules/@capacitor/core/dist/capacitor.js www/capacitor.js && cp node_modules/@capacitor-community/bluetooth-le/dist/plugin.js www/bluetooth-le.js && npx cap sync"
   },
   "repository": {
     "type": "git",
@@ -23,6 +23,7 @@
     "@capacitor-community/bluetooth-le": "^8.2.0",
     "@capacitor/android": "^8.4.2",
     "@capacitor/cli": "^8.4.2",
-    "@capacitor/core": "^8.4.2"
+    "@capacitor/core": "^8.4.2",
+    "@capacitor/ios": "^8.4.2"
   }
 }
