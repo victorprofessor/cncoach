@@ -157,35 +157,19 @@ input[type=range]{width:100%;accent-color:#ff3d3d;margin:10px 0;}
     <button id="btn-voice" class="btn btn-s" style="font-size:13px;padding:12px;" onclick="activateVoice()">🔊 Ativar coach de voz</button>
   </div>
 
-  <!-- Card Google TTS -->
+  <!-- Card Voz do Coach (voz do navegador) -->
   <div class="card" style="margin-bottom:14px;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-      <div style="font-size:13px;font-weight:700;">🎙️ Voz Neural — Google Cloud</div>
-      <div id="gtts-dot" style="width:8px;height:8px;border-radius:50%;background:#3d5070;"></div>
+      <div style="font-size:13px;font-weight:700;">🔊 Voz do Coach</div>
+      <div id="gtts-dot" style="width:8px;height:8px;border-radius:50%;background:#00c853;"></div>
     </div>
-    <div id="gtts-inactive">
-      <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Voz humana WaveNet em português. Cole a chave de API do Google Cloud (Text-to-Speech).</div>
-      <input class="inp" type="password" id="gtts-key-input" placeholder="AIza..." autocomplete="off" style="margin-bottom:8px;">
-      <button class="btn btn-b" style="font-size:14px;padding:12px;margin-bottom:0;" onclick="saveGttsKey()">Ativar voz neural</button>
-    </div>
-    <div id="gtts-active" style="display:none;">
-      <div style="font-size:13px;color:#00c853;font-weight:700;margin-bottom:10px;">✅ Voz Google ativa</div>
-      <div style="font-size:12px;color:#7a8fbb;margin-bottom:6px;">Escolha a voz:</div>
-      <select class="inp" id="gtts-voice-sel" onchange="setGttsVoice(this.value)" style="margin-bottom:10px;">
-        <optgroup label="Femininas">
-          <option value="pt-BR-Wavenet-A">Wavenet A — Feminina (padrão)</option>
-          <option value="pt-BR-Wavenet-C">Wavenet C — Feminina</option>
-          <option value="pt-BR-Neural2-A">Neural2 A — Feminina (premium)</option>
-          <option value="pt-BR-Neural2-C">Neural2 C — Feminina (premium)</option>
-        </optgroup>
-        <optgroup label="Masculinas">
-          <option value="pt-BR-Wavenet-B">Wavenet B — Masculina</option>
-          <option value="pt-BR-Neural2-B">Neural2 B — Masculina (premium)</option>
-        </optgroup>
-      </select>
-      <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:8px;" onclick="testGttsVoice()">▶ Testar voz</button>
-      <button class="btn btn-s" style="font-size:12px;padding:8px;margin-bottom:0;" onclick="removeGttsKey()">Remover chave</button>
-    </div>
+    <div style="font-size:12px;color:#7a8fbb;margin-bottom:10px;line-height:1.5;">Na versão web, o coach usa a voz do navegador. No app CnCoach para Android, a voz é neural (WaveNet) — muito mais natural.</div>
+    <div style="font-size:12px;color:#7a8fbb;margin-bottom:6px;">Estilo do coach:</div>
+    <select class="inp" id="gtts-voice-sel" onchange="setGttsVoice(this.value)" style="margin-bottom:10px;">
+      <option value="pt-BR-Wavenet-A">Treinadora (feminina)</option>
+      <option value="pt-BR-Wavenet-B">Treinador (masculino)</option>
+    </select>
+    <button class="btn btn-b" style="font-size:13px;padding:10px;margin-bottom:0;" onclick="testGttsVoice()">▶ Testar voz</button>
   </div>
 
   <div id="home-noeval" class="card" style="text-align:center;padding:28px 16px;">
@@ -800,7 +784,6 @@ function zoneFor(fc){if(!S.user)return null;const z=S.user.zones;if(fc>=z.red.mi
 // ── STORAGE ──
 function load(){
   try{const d=JSON.parse(localStorage.getItem('cnc4')||'{}');S.user=d.u||null;S.hist=d.h||[];S.plan=d.p||{};S.planCfg=d.pc||null;S.goals=d.g||{distMeta:0,trMeta:0,peso:70};S.templates=d.t||[];S.wu=d.wu||{on:false,min:5};S.cd=d.cd||{on:false,min:5};}catch(e){}
-  try{const k=localStorage.getItem('cnc_gtts');if(k){_gttsKey=k;_unlocked=true;}}catch(e){}
   try{const v=localStorage.getItem('cnc_gtts_voice');if(v)_gttsVoice=v;}catch(e){}
 }
 function save(){try{localStorage.setItem('cnc4',JSON.stringify({u:S.user,h:S.hist,p:S.plan||{},pc:S.planCfg||null,g:S.goals||{},t:S.templates||[],wu:S.wu||{on:false,min:5},cd:S.cd||{on:false,min:5}}));}catch(e){toast('⚠ Armazenamento cheio — exporte o histórico e exclua treinos antigos');}}
@@ -897,13 +880,12 @@ function drainQueue(){
 function doSpeak(msg){
   _speaking=true; // marca ANTES da requisição — impede duas vozes em paralelo
   const gen=++_speakGen;
-  if(_gttsKey)speakGoogle(msg,gen);
-  else speakBrowser(msg,gen);
+  speakBrowser(msg,gen);
 }
 
 function say(msg){
   toast(msg);
-  if(!_unlocked&&!_gttsKey)return;
+  if(!_unlocked)return;
   if(_speakQueue.length>1)_speakQueue=[_speakQueue[_speakQueue.length-1]];
   if(_speaking){_speakQueue.push(msg);return;}
   doSpeak(msg);
@@ -930,7 +912,7 @@ function activateVoice(){
 
 // ── UI Google TTS ──
 function updateGttsUI(){
-  const active=!!_gttsKey;
+  const active=true;
   const dot=document.getElementById('gtts-dot');
   const inact=document.getElementById('gtts-inactive');
   const act=document.getElementById('gtts-active');
@@ -979,6 +961,7 @@ function setGttsVoice(v){
 }
 
 function testGttsVoice(){
+  _unlocked=true;loadVoice();
   say(pick([
     'Oi! Sou '+coachWord()+'. Vamos correr juntos hoje?',
     'Bora treinar! Estou aqui pra te motivar do início ao fim.',
@@ -1729,37 +1712,38 @@ function renderSegs(){
 }
 
 // ── TREINO ATIVO ──
-let _lz=null,_lkm=0,_lastKmSec=0,_half=false;
+let _lz=null,_lkm=0,_lastKmSec=0,_half=false,_lastFcCheckSec=0,_prevFcRef=0;
 
 function startTreino(){
   if(S.wu.on) S.segs.unshift(buildWarmupSeg());
   if(S.cd.on) S.segs.push(buildCooldownSeg());
   S.active=true;S.livre=false;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;_lastFcCheckSec=0;_prevFcRef=0;
   S._doneAnnounced=false;
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   initSegLogs();
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   if(S.segs.length){document.getElementById('seg-prog').style.display='block';renderSegBarActive(0);}
-  startGPS(true);
+  document.getElementById('map-live').style.display=S.gps.on?'':'none';
+  if(S.gps.on){startGPS(true);setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);}
+  else if(S.segs.some(s=>s.mode==='dist'))toast('GPS desativado — fases por distância não avançam');
   reqWake();
-  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
   say('Preparar, '+n()+'... 3... 2... 1... vai! Treino iniciado, foco total!');
 }
 
 function startLivre(){
   S.active=true;S.livre=true;S.sec=0;S.startTs=Date.now();S.pausedMs=0;S.paused=false;
-  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;
+  S.fcLog=[];S.zt={blue:0,green:0,yellow:0,red:0};S.fcMax=0;_lz=null;_lkm=0;_lastKmSec=0;_half=false;_lastFcCheckSec=0;_prevFcRef=0;
   S._doneAnnounced=false;
   if(_mapLive){_mapLive.remove();_mapLive=null;_liveMarker=null;_startMarker=null;}
   document.getElementById('tr-setup').style.display='none';document.getElementById('tr-active').style.display='block';
   const pb=document.getElementById('btn-pause');if(pb)pb.textContent='⏸ Pausar';
   document.getElementById('seg-prog').style.display='none';
-  startGPS(true);
+  document.getElementById('map-live').style.display=S.gps.on?'':'none';
+  if(S.gps.on){startGPS(true);setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);}
   reqWake();
-  setTimeout(()=>{ initMapLive(); if(S.gps.lat)_mapLive.setView([S.gps.lat,S.gps.lng],16); },400);
   S.iv=setInterval(tick,1000);
   say('Preparar, '+n()+'... 3... 2... 1... vai! Treino livre — corre no seu ritmo!');
 }
@@ -1775,7 +1759,7 @@ function togglePause(){
   } else {
     S.pausedMs+=Date.now()-S.pauseTs;S.paused=false;
     S.gps.last=null; // evita salto de distância pelo deslocamento durante a pausa
-    startGPS(false);reqWake();
+    if(S.gps.on)startGPS(false);reqWake();
     document.getElementById('btn-pause').textContent='⏸ Pausar';
     say('Treino retomado! 3... 2... 1... vai!');
   }
@@ -1810,8 +1794,7 @@ function tick(){
   }
 
   // Voice coaching
-  if(zone&&zone!==_lz){say(pick(COACH_Z[zone])(n()));_lz=zone;}
-  else coachPeriodic(zone,m);
+  coachVoice(zone,m);
 }
 
 // ── Rastreia FC por segmento para pontuação precisa ──
@@ -1851,6 +1834,7 @@ function updateSegProgress(){
     S.curSegIdx++;
     S.segStartSec=S.sec;
     S.segStartDist=S.gps.dist;
+    _lastFcCheckSec=S.sec-20;_lz='__nova_fase__';
   } else if(segDone&&isLast&&!S._doneAnnounced){
     S._doneAnnounced=true;
     say(`${n()}, você completou todas as fases! Continue correndo ou encerre o treino.`);
@@ -1954,74 +1938,92 @@ const COACH_Z={
   red:[n=>`ZONA VERMELHA, ${n}! Dá TUDO agora!`,n=>`${n}, vermelho! Esquece o cansaço — vai!`,n=>`MÁXIMO, ${n}! Você treinou pra esse momento!`],
 };
 
-function coachPeriodic(zone,m){
-  const NEAR_BPM=5; // diferença considerada "perto do alvo"
+function zoneRank(z){return({blue:0,green:1,yellow:2,red:3})[z]!==undefined?({blue:0,green:1,yellow:2,red:3})[z]:-1;}
 
-  // A cada 30s: verifica FC vs zona alvo do segmento atual
-  // (aquecimento/relaxamento não exigem FC — pula esse aviso)
-  if(S.sec>30&&S.sec%30===0&&S.segs.length){
-    const idx=S.curSegIdx;
-    const seg=S.segs[idx];
-    if(seg&&!seg.isWarmup&&!seg.isCooldown){
-      const fc=S.fc;
-      const segName=seg.label||`Fase ${idx+1}`;
-      if(fc>=seg.fcMin&&fc<=seg.fcMax){
-        // Na zona — parabeniza
-        say(pick([
-          `${n()}, FC perfeita na fase "${segName}"! Mantém esse ritmo.`,
-          `Isso aí, ${n()}! Você tá exatamente na zona certa. Continua!`,
-          `FC no alvo, ${n()}! ${fc} bpm — perfeito para essa fase.`,
-        ]));
-      } else if(fc<seg.fcMin){
-        const diff=seg.fcMin-fc;
-        if(diff<=NEAR_BPM){
-          // Perto do alvo — sem alarde
-          say(pick([
-            `${n()}, tá quase lá! Só ${diff} bpm pra entrar na fase "${segName}".`,
-            `Perto do alvo, ${n()}! Sobe só um pouquinho o ritmo.`,
-          ]));
-        } else {
-          say(pick([
-            `${n()}, aumenta o ritmo! FC atual ${fc}, precisa chegar em ${seg.fcMin} bpm para a fase "${segName}".`,
-            `Acelera, ${n()}! Você tá em ${fc} bpm, o alvo é ${seg.fcMin}–${seg.fcMax} bpm.`,
-            `Falta esforço, ${n()}! Sobe a FC para pelo menos ${seg.fcMin} bpm.`,
-          ]));
-        }
-      } else {
-        const diff=fc-seg.fcMax;
-        if(diff<=NEAR_BPM){
-          // Levemente acima — sem alarde
-          say(pick([
-            `${n()}, tá quase no alvo! Só ${diff} bpm acima — segura leve o ritmo.`,
-            `Perto do ideal, ${n()}! FC de ${fc}, é só ajeitar um pouco.`,
-          ]));
-        } else {
-          say(pick([
-            `${n()}, diminui o ritmo! FC em ${fc}, o alvo da fase "${segName}" é ${seg.fcMax} bpm no máximo.`,
-            `Segura, ${n()}! Você tá em ${fc} bpm, acima do planejado. Traz pra ${seg.fcMax} bpm.`,
-            `Reduz a intensidade, ${n()}! FC de ${fc} tá alta demais para essa fase.`,
-          ]));
-        }
-      }
-      return;
-    }
-  }
-
-  // A cada 2 minutos: update geral
-  if(S.sec>60&&S.sec%120===0){
-    say(pick([`${n()}, ${m} minutos de treino. Continua assim!`,`Tá ótimo, ${n()}. ${m} minutos. Mantém o foco.`]));
-    return;
-  }
-
-  // Splits automáticos por km (estilo miCoach): anuncia o tempo do último quilômetro
+function coachVoice(zone,m){
+  // 1) Split de km — prioridade máxima (só com GPS ativo)
   const ki=Math.floor(S.gps.dist);
-  if(ki>_lkm&&ki>0){
+  if(S.gps.on&&ki>_lkm&&ki>0){
     const splitSec=Math.max(1,S.sec-_lastKmSec);
     _lkm=ki;_lastKmSec=S.sec;
     const sm=Math.floor(splitSec/60),ss=splitSec%60;
     const extra={1:' Ótimo começo!',3:' Consistência total!',5:' Cinco quilômetros, que treino!',10:' Dez quilômetros, sensacional!'}[ki]||'';
     say(`Quilômetro ${ki}, ${n()}. Último quilômetro em ${sm} ${sm===1?'minuto':'minutos'}${ss>0?' e '+ss+' segundos':''}.${extra}`);
+    _lz=zone;
     return;
+  }
+
+  // Treino livre (sem fases): coach por zonas original
+  if(S.livre||!S.segs.length){
+    if(zone&&zone!==_lz)say(pick(COACH_Z[zone])(n()));
+    _lz=zone;
+    return;
+  }
+
+  const seg=S.segs[S.curSegIdx];
+  if(!seg){_lz=zone;return;}
+  let lastNormal=-1;for(let i=0;i<S.segs.length;i++)if(!S.segs[i].isCooldown)lastNormal=i;
+  const isLastNormal=S.curSegIdx===lastNormal;
+
+  // Aquecimento: sem alvo de FC, sem cobrança — silêncio (splits ainda tocam)
+  if(seg.isWarmup){_lz=zone;return;}
+
+  // Relaxamento: só pede pra desacelerar enquanto a FC estiver alta
+  if(seg.isCooldown){
+    if(S.sec-_lastFcCheckSec>=45){
+      _lastFcCheckSec=S.sec;
+      if(zoneRank(zone)>=1)say(pick([
+        `${n()}, hora de relaxar. Diminui o ritmo pra baixar a FC.`,
+        `Vai desacelerando, ${n()}. Deixa a FC descer aos poucos.`,
+      ]));
+    }
+    _lz=zone;
+    return;
+  }
+
+  const fc=S.fc,inZone=fc>=seg.fcMin&&fc<=seg.fcMax;
+  const segName=seg.label||`Fase ${S.curSegIdx+1}`;
+  const trend=_prevFcRef?(fc>_prevFcRef+2?'subiu':(fc<_prevFcRef-2?'baixou':'')):'';
+
+  // 2) Mudou de zona (ou de fase): reação imediata, SEMPRE relativa ao alvo
+  if(zone!==_lz){
+    _lz=zone;_prevFcRef=fc;_lastFcCheckSec=S.sec;
+    if(inZone){
+      say(pick(isLastNormal?[
+        `É isso, ${n()}! FC no alvo na reta final. Segura até o fim!`,
+        `${n()}, entrou na zona certa! Agora é fechar com tudo!`,
+      ]:[
+        `Perfeito, ${n()}! Entrou na fase "${segName}". Mantém esse ritmo.`,
+        `É isso, ${n()}! FC no alvo da fase. Continua assim.`,
+      ]));
+    } else if(fc>seg.fcMax){
+      say(`${n()}, FC subiu pra ${fc}. Baixa ${fc-seg.fcMax} bpm pra voltar ao alvo da fase "${segName}".`);
+    } else {
+      say(`${n()}, FC em ${fc}. Sobe ${seg.fcMin-fc} bpm pra entrar na fase "${segName}".`);
+    }
+    return;
+  }
+
+  // 3) Checagem periódica a cada 30s reais (imune a pulos do timer)
+  if(S.sec-_lastFcCheckSec>=30){
+    _lastFcCheckSec=S.sec;
+    const t=trend?` A FC ${trend} pra ${fc}.`:'';
+    if(inZone){
+      say(pick(isLastNormal?[
+        `Reta final, ${n()}! FC perfeita. Dá o seu melhor até o fim!`,
+        `${n()}, tá voando! Últimos momentos — capricha!`,
+      ]:[
+        `${n()}, FC perfeita na fase "${segName}"! Mantém.`,
+        `FC no alvo, ${n()}! ${fc} bpm — exatamente onde precisa.`,
+      ]));
+    } else if(fc>seg.fcMax){
+      const diff=fc-seg.fcMax;
+      say(diff<=5?`${n()}, só ${diff} bpm acima do alvo.${t} Alivia um pouco o ritmo.`:`${n()}, baixa ${diff} bpm.${t} O alvo da fase "${segName}" é ${seg.fcMin} a ${seg.fcMax}.`);
+    } else {
+      const diff=seg.fcMin-fc;
+      say(diff<=5?`${n()}, quase lá! Só ${diff} bpm pra entrar na fase "${segName}".`:`${n()}, sobe ${diff} bpm.${t} O alvo da fase "${segName}" é ${seg.fcMin} a ${seg.fcMax}.`);
+    }
+    _prevFcRef=fc;
   }
 }
 
